@@ -537,7 +537,7 @@ logging.level.org.springframework.cache=DEBUG
 
 | Property | Default | Description |
 |----------|---------|-------------|
-| `alpha.vantage.api.key` | `74UO0AK3TRX4QF8K` | Alpha Vantage API key (should be changed to your own) |
+| `alpha.vantage.api.key` | `your_api_key` | Alpha Vantage API key (should be changed to your own) |
 | `server.port` | `8082` | Server port |
 | `spring.cache.type` | `simple` | Cache implementation (simple = in-memory) |
 | `spring.jpa.hibernate.ddl-auto` | `update` | Auto-update database schema |
