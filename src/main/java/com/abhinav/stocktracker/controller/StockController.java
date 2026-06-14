@@ -27,6 +27,25 @@ public class StockController {
         this.stockClient = stockClient;
     }
 
+    @GetMapping("/")
+    public ResponseEntity<Map<String, Object>> home() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "🚀 Welcome to Stock Tracker API");
+        response.put("status", "Running");
+        response.put("version", "1.0");
+        response.put("baseUrl", "/api/v1/stocks");
+        
+        Map<String, String> endpoints = new HashMap<>();
+        endpoints.put("Get Live Stock Price", "GET /api/v1/stocks/{symbol}   → e.g. /api/v1/stocks/AAPL");
+        endpoints.put("Get Stock Overview", "GET /api/v1/stocks/{symbol}/overview");
+        endpoints.put("Get Price History", "GET /api/v1/stocks/{symbol}/history?days=30");
+        endpoints.put("Add Favorite", "POST /api/v1/stocks/favorites");
+        endpoints.put("Get All Favorites", "GET /api/v1/stocks/favorites");
+        
+        response.put("endpoints", endpoints);
+        
+        return ResponseEntity.ok(response);
+    }
 
     @GetMapping("/{stockSymbol}")
     public StockResponse getStock(@PathVariable("stockSymbol") String stockSymbol) {
