@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -30,7 +32,7 @@ public class StockController {
     @GetMapping("/")
     public ResponseEntity<Map<String, Object>> home() {
         Map<String, Object> response = new HashMap<>();
-        response.put("message", "🚀 Welcome to Stock Tracker API");
+        response.put("message", "Welcome to Stock Tracker API");
         response.put("status", "Running");
         response.put("version", "1.0");
         response.put("baseUrl", "/api/v1/stocks");
