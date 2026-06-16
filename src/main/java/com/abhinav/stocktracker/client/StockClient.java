@@ -1,5 +1,6 @@
 package com.abhinav.stocktracker.client;
 
+import com.abhinav.stocktracker.annotation.StockApiRetry;
 import com.abhinav.stocktracker.dto.AlphaVantageResponse;
 import com.abhinav.stocktracker.dto.DailyStockResponse;
 import com.abhinav.stocktracker.dto.StockHistoryResponse;
@@ -30,11 +31,7 @@ public class StockClient {
     private String baseUrl;
 
     private static final Logger log = LoggerFactory.getLogger(StockClient.class);
-    @Retryable(
-            retryFor = Exception.class,    // 遇到任何异常都重试
-            maxAttempts = 3,               // 最多重试 3 次
-            backoff = @Backoff(delay = 2000)  // 每次重试间隔 2 秒
-    )
+   @StockApiRetry
     public AlphaVantageResponse getStockQuote(String symbol) {
             return webClient.get()
                     .uri(builder -> builder
@@ -47,11 +44,7 @@ public class StockClient {
                     .block();
     }
 
-    @Retryable(
-            retryFor = Exception.class,    // 遇到任何异常都重试
-            maxAttempts = 3,               // 最多重试 3 次
-            backoff = @Backoff(delay = 2000)  // 每次重试间隔 2 秒
-    )
+    @StockApiRetry
     public StockOverviewResponse  getStockOverview(final String symbol) {
         return webClient.get()
                 .uri(builder -> builder
@@ -63,11 +56,7 @@ public class StockClient {
                 .bodyToMono(StockOverviewResponse.class)
                 .block();
     }
-    @Retryable(
-            retryFor = Exception.class,    // 遇到任何异常都重试
-            maxAttempts = 3,               // 最多重试 3 次
-            backoff = @Backoff(delay = 2000)  // 每次重试间隔 2 秒
-    )
+    @StockApiRetry
     public StockHistoryResponse getStockHistory(String stockSymbol) {
         return webClient.get()
                 .uri(builder -> builder
