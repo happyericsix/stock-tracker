@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.abhinav.stocktracker.dto.Result;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
@@ -34,7 +35,7 @@ public class StockController {
         Map<String, Object> response = new HashMap<>();
         response.put("message", "Welcome to Stock Tracker API");
         response.put("status", "Running");
-        response.put("version", "1.0");
+        response.put("version", "2.0");
         response.put("baseUrl", "/api/v1/stocks");
         
         Map<String, String> endpoints = new HashMap<>();
@@ -42,6 +43,7 @@ public class StockController {
         endpoints.put("Get Stock Overview", "GET /api/v1/stocks/{symbol}/overview");
         endpoints.put("Get Price History", "GET /api/v1/stocks/{symbol}/history?days=30");
         endpoints.put("Add Favorite", "POST /api/v1/stocks/favorites");
+        endpoints.put("Delete Favorite", "DELETE /api/v1/stocks/favorites/{symbol}");
         endpoints.put("Get All Favorites", "GET /api/v1/stocks/favorites");
         
         response.put("endpoints", endpoints);
@@ -100,5 +102,14 @@ public class StockController {
         long duration = System.currentTimeMillis() - startTime;
         log.info("GET /favorites returned {} stocks in {}ms", favorites.size(), duration);
         return favorites;
+    }
+        @DeleteMapping("/favorites/{symbol}")
+    public Result<String> deleteFavoriteStocks(@PathVariable String symbol) {
+        boolean deleted = stockService.deleteFavorite(symbol.toUpperCase());
+        if (deleted) {
+            return Result.success("Favorite deleted successfully", symbol.toUpperCase());
+        } else {
+            return Result.error(404, "Favorite not found: " + symbol.toUpperCase());
+        }
     }
 }

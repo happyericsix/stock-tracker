@@ -76,6 +76,18 @@ public class StockService {
         return favoriteStockRepository.save(favoriteStock);
     }
 
+    
+    @Transactional
+    public boolean deleteFavorite(final String stockSymbol) {
+        if (favoriteStockRepository.existsByStockSymbol(stockSymbol)) {
+            favoriteStockRepository.deleteByStockSymbol(stockSymbol);
+            log.info("Deleted favorite: {}", stockSymbol);
+            return true;
+        }
+        log.warn("Favorite not found: {}", stockSymbol);
+        return false;
+    }
+
     public List<StockResponse> getFavoritesWithLivePrices() {
         List<FavoriteStock> favoriteStocks = favoriteStockRepository.findAll();
         return favoriteStocks.stream()

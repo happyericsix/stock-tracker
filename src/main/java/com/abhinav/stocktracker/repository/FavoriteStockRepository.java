@@ -7,6 +7,8 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface FavoriteStockRepository extends JpaRepository<FavoriteStock, Long> {
 
+    void deleteByStockSymbol(String stockSymbol);
+
     boolean existsByStockSymbol(String stockSymbol);
 
 }
