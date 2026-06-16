@@ -1,22 +1,22 @@
-# Stock Tracker - Request to Response Workflow
+# Stock Tracker - 请求到响应的工作流程
 
-Complete layer-wise and flow diagrams showing how requests travel through the application from Postman to the final JSON response.
+完整的层次结构和流程图，展示请求如何从 Postman 经过各层到达最终的 JSON 响应。
 
 ---
 
-## 1. LAYER-WISE ARCHITECTURE
+## 1. 分层架构
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│                           PRESENTATION LAYER                                 │
+│                            表现层（PRESENTATION LAYER）                        │
 │                         (Postman / REST Client)                              │
 │                      GET /api/v1/stocks/GOOGL                                │
 └──────────────────────────────────┬───────────────────────────────────────────┘
                                    │
-                                   │ HTTP Request
+                                   │ HTTP 请求
                                    ▼
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│                           API LAYER                                          │
+│                            API 层（API LAYER）                                 │
 │                    (Spring Boot Controller)                                  │
 │                                                                      
 │  @RestController                                                             │
@@ -29,10 +29,10 @@ Complete layer-wise and flow diagrams showing how requests travel through the ap
 │  └── @GetMapping("/favorites")                                               │
 └──────────────────────────────────┬───────────────────────────────────────────┘
                                    │
-                                   │ Calls Methods
+                                   │ 调用方法
                                    ▼
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│                         BUSINESS LOGIC LAYER                                 │
+│                          业务逻辑层（BUSINESS LOGIC LAYER）                    │
 │                      (Spring Service - StockService)                         │
 │                                                                              │
 │  @Service                                                                    │
@@ -50,761 +50,300 @@ Complete layer-wise and flow diagrams showing how requests travel through the ap
 │  └── getFavoritesWithLivePrices()                                            │
 └───────┬─────────────────────────────────────┬───────────────────────────────┘
         │                                     │
-        │ Cache Check                         │ No Cache Hit
+        │ 缓存检查                             │ 缓存未命中
         ▼                                     ▼
     ┌─────────────────┐            ┌──────────────────────────┐
+    │   缓存命中       │            │    客户端层              │
     │   CACHE HIT     │            │  CLIENT LAYER            │
-    │ (Return From    │            │  (StockClient)           │
-    │ In-Memory Cache)│            │                          │
-    └────────┬────────┘            │ ├─ getStockQuote()       │
-             │                     │ ├─ getStockOverview()    │
-             │                     │ └─ getStockHistory()     │
-             │                     │                          │
-             │                     │ (Uses WebClient/HTTP)    │
-             │                     └────────┬────────┬────────┘
-             │                              │        │
-             │                              │        └──────────────┐
-             │                              │                       │
-             │                              ▼                       ▼
-             │                    ┌──────────────────┐   ┌──────────────────┐
-             │                    │   DATABASE       │   │  EXTERNAL API    │
-             │                    │  (H2 In-Memory)  │   │ (Alpha Vantage)  │
-             │                    │                  │   │                  │
-             │                    │ FavoriteStock    │   │ GLOBAL_QUOTE     │
-             │                    │ Entity           │   │ OVERVIEW         │
-             │                    │                  │   │ TIME_SERIES_DAILY│
-             │                    └────────┬─────────┘   └────────┬─────────┘
-             │                             │                     │
-             │                             └─────┬───────────────┘
-             │                                   │
-             │                    Response (DTO/JSON)
-             │                                   │
-             └───────────────────┬───────────────┘
+    │                 │            │                          │
+    │  返回缓存数据    │            │  StockClient             │
+    │  Return cached  │            │  调用外部 API            │
+    │  5-10ms         │            │  External API Call       │
+    └─────────────────┘            │  500-800ms               │
+                                   └──────────┬───────────────┘
+                                              │
+                                              ▼
+                                   ┌──────────────────────┐
+                                   │  Alpha Vantage API    │
+                                   │  (外部股票数据源)      │
+                                   └──────────────────────┘
+                                              │
+                                              ▼
+                                   ┌──────────────────────┐
+                                   │   数据层              │
+                                   │  DATA LAYER           │
+                                   │                      │
+                                   │  FavoriteStockRepo    │
+                                   │  ┌─ 查数据库 (查)    │
+                                   │  └─ 存数据库 (增删)  │
+                                   │                      │
+                                   │  H2 内存数据库        │
+                                   └──────────────────────┘
+                                              │
+                                              ▼
+                                   ┌──────────────────────┐
+                                   │    JSON 响应          │
+                                   │    返回给客户端       │
+                                   └──────────────────────┘
+```
+
+---
+
+## 2. 获取实时股价 — 请求流程
+
+```
+Postman                          StockController              StockService                  StockClient                Alpha Vantage
+  │                                    │                           │                            │                        │
+  │  GET /api/v1/stocks/GOOGL          │                           │                            │                        │
+  │───────────────────────────────────►│                           │                            │                        │
+  │                                    │                           │                            │                        │
+  │                                    │  getStockForSymbol()      │                            │                        │
+  │                                    │──────────────────────────►│                            │                        │
+  │                                    │                           │                            │                        │
+  │                                    │                           │  检查缓存 stocks:GOOGL     │                        │
+  │                                    │                           │  ──────────────────────────►(缓存未命中)              │
+  │                                    │                           │                            │                        │
+  │                                    │                           │  getStockQuote(GOOGL)       │                        │
+  │                                    │                           │────────────────────────────►│                        │
+  │                                    │                           │                            │  HTTP 请求              │
+  │                                    │                           │                            │────────────────────────►│
+  │                                    │                           │                            │                        │
+  │                                    │                           │                            │  JSON 响应              │
+  │                                    │                           │                            │◄────────────────────────│
+  │                                    │                           │                            │                        │
+  │                                    │                           │◄────────────────────────────│                        │
+  │                                    │                           │                            │                        │
+  │                                    │                           │  存入缓存 stocks:GOOGL     │                        │
+  │                                    │                           │                            │                        │
+  │                                    │◄──────────────────────────│                            │                        │
+  │                                    │                           │                            │                        │
+  │  JSON 响应                          │                           │                            │                        │
+  │◄───────────────────────────────────│                           │                            │                        │
+  │                                    │                           │                            │                        │
+```
+
+---
+
+## 3. 获取股票概况 — 请求流程
+
+```
+Postman                          StockController              StockService                  StockClient                Alpha Vantage
+  │                                    │                           │                            │                        │
+  │  GET /api/v1/stocks/MSFT/overview  │                           │                            │                        │
+  │───────────────────────────────────►│                           │                            │                        │
+  │                                    │                           │                            │                        │
+  │                                    │  getStockOverviewFor()    │                            │                        │
+  │                                    │──────────────────────────►│                            │                        │
+  │                                    │                           │                            │                        │
+  │                                    │                           │  检查缓存 stockOverviews   │                        │
+  │                                    │                           │  ──────────────────────────►(缓存命中)               │
+  │                                    │                           │◄────────────────────────────│                        │
+  │                                    │◄──────────────────────────│                            │                        │
+  │  JSON 响应                          │                           │                            │                        │
+  │◄───────────────────────────────────│                           │                            │                        │
+  │                                    │                           │                            │                        │
+```
+
+---
+
+## 4. 获取历史行情 — 请求流程
+
+```
+Postman                          StockController              StockService                  StockClient                Alpha Vantage
+  │                                    │                           │                            │                        │
+  │  GET /api/v1/stocks/AAPL/history   │                           │                            │                        │
+  │  ?days=7                           │                           │                            │                        │
+  │───────────────────────────────────►│                           │                            │                        │
+  │                                    │                           │                            │                        │
+  │                                    │  getHistory("AAPL", 7)   │                            │                        │
+  │                                    │──────────────────────────►│                            │                        │
+  │                                    │                           │                            │                        │
+  │                                    │                           │  getStockHistory("AAPL")   │                        │
+  │                                    │                           │────────────────────────────►│                        │
+  │                                    │                           │                            │                        │
+  │                                    │                           │                            │  HTTP 请求              │
+  │                                    │                           │                            │────────────────────────►│
+  │                                    │                           │                            │                        │
+  │                                    │                           │                            │  JSON 响应              │
+  │                                    │                           │                            │◄────────────────────────│
+  │                                    │                           │◄────────────────────────────│                        │
+  │                                    │                           │                            │                        │
+  │                                    │                           │  转换为 DailyStockResponse │                        │
+  │                                    │                           │  列表                      │                        │
+  │                                    │◄──────────────────────────│                            │                        │
+  │                                    │                           │                            │                        │
+  │  JSON [                            │                           │                            │                        │
+  │   {date,open,close,high,low,vol}   │                           │                            │                        │
+  │  ]                                │                           │                            │                        │
+  │◄───────────────────────────────────│                           │                            │                        │
+  │                                    │                           │                            │                        │
+```
+
+---
+
+## 5. 添加自选股 — 请求流程
+
+```
+Postman                          StockController              StockService               FavoriteStockRepo          H2 数据库
+  │                                    │                           │                            │                        │
+  │  POST /api/v1/stocks/favorites     │                           │                            │                        │
+  │  {"symbol": "MSFT"}               │                           │                            │                        │
+  │───────────────────────────────────►│                           │                            │                        │
+  │                                    │                           │                            │                        │
+  │                                    │  addFavorite("MSFT")      │                            │                        │
+  │                                    │──────────────────────────►│                            │                        │
+  │                                    │                           │                            │                        │
+  │                                    │                           │  existsByStockSymbol()     │                        │
+  │                                    │                           │───────────────────────────►│                        │
+  │                                    │                           │                            │                        │
+  │                                    │                           │  SELECT COUNT(*)           │                        │
+  │                                    │                           │  FROM favorite_stocks      │                        │
+  │                                    │                           │  WHERE stock_symbol='MSFT' │                        │
+  │                                    │                           │◄───────────────────────────│                        │
+  │                                    │                           │                            │                        │
+  │                                    │                           │  save(new FavoriteStock)   │                        │
+  │                                    │                           │───────────────────────────►│                        │
+  │                                    │                           │                            │  INSERT INTO           │
+  │                                    │                           │                            │  favorite_stocks       │
+  │                                    │                           │◄───────────────────────────│                        │
+  │                                    │                           │                            │                        │
+  │                                    │◄──────────────────────────│                            │                        │
+  │                                    │                           │                            │                        │
+  │  {"id": 2, "stockSymbol": "MSFT"} │                           │                            │                        │
+  │◄───────────────────────────────────│                           │                            │                        │
+  │                                    │                           │                            │                        │
+```
+
+---
+
+## 6. 查看自选股列表 — 请求流程
+
+```
+Postman                          StockController              StockService               FavoriteStockRepo      StockClient    Alpha Vantage
+  │                                    │                           │                            │                        │
+  │  GET /api/v1/stocks/favorites      │                           │                            │                        │
+  │───────────────────────────────────►│                           │                            │                        │
+  │                                    │                           │                            │                        │
+  │                                    │  getFavoritesWithPrices() │                            │                        │
+  │                                    │──────────────────────────►│                            │                        │
+  │                                    │                           │                            │                        │
+  │                                    │                           │  findAll()                 │                        │
+  │                                    │                           │───────────────────────────►│                        │
+  │                                    │                           │  [AAPL, MSFT]              │                        │
+  │                                    │                           │◄───────────────────────────│                        │
+  │                                    │                           │                            │                        │
+  │                                    │                           │  getStockFor("AAPL")       │                        │
+  │                                    │                           │────────────────────────────►│                        │
+  │                                    │                           │                            │───────────────────────►│
+  │                                    │                           │◄────────────────────────────│◄───────────────────────│
+  │                                    │                           │                            │                        │
+  │                                    │                           │  getStockFor("MSFT")       │                        │
+  │                                    │                           │────────────────────────────►│                        │
+  │                                    │                           │                            │───────────────────────►│
+  │                                    │                           │◄────────────────────────────│◄───────────────────────│
+  │                                    │                           │                            │                        │
+  │                                    │◄──────────────────────────│                            │                        │
+  │                                    │                           │                            │                        │
+  │  JSON [{symbol,price,...}]         │                           │                            │                        │
+  │◄───────────────────────────────────│                           │                            │                        │
+  │                                    │                           │                            │                        │
+```
+
+---
+
+## 7. 缓存交互流程
+
+```
+                      ┌──────────────────────────────────────────┐
+                      │          Controller 层                   │
+                      │    StockController                       │
+                      │          │                               │
+                      │          │ 调用 Service                   │
+                      └──────────│───────────────────────────────┘
                                  │
                                  ▼
-                    ┌──────────────────────────┐
-                    │    CACHE LAYER           │
-                    │  (Spring Cache - Simple) │
-                    │                          │
-                    │ Cache Name: "stocks"     │
-                    │ Cache Name: "stockOver"  │
-                    └────────┬─────────────────┘
-                             │
-                             │ Store/Return
-                             ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                        RESPONSE LAYER (DTOs)                                 │
-│                                                                              │
-│  ├── StockResponse                                                           │
-│  │   { symbol, price, lastUpdated }                                          │
-│  │                                                                            │
-│  ├── StockOverviewResponse                                                   │
-│  │   { symbol, name, description, marketCap, peRatio, ... }                 │
-│  │                                                                            │
-│  ├── StockHistoryResponse                                                    │
-│  │   [ { date, open, close, high, low, volume }, ... ]                      │
-│  │                                                                            │
-│  └── FavoriteStock (Entity)                                                  │
-│      { id, stockSymbol }                                                     │
-└──────────────────────────────────┬───────────────────────────────────────────┘
-                                   │
-                                   │ JSON Serialization
-                                   ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                      PRESENTATION LAYER (Response)                           │
-│                         (Postman / REST Client)                              │
-│                                                                              │
-│  HTTP 200 OK                                                                 │
-│  Content-Type: application/json                                              │
-│                                                                              │
-│  {                                                                           │
-│    "symbol": "GOOGL",                                                        │
-│    "price": "178.45",                                                        │
-│    "lastUpdated": "2026-06-07"                                               │
-│  }                                                                           │
-└──────────────────────────────────────────────────────────────────────────────┘
+                      ┌──────────────────────────────────────────┐
+                      │          Service 层                      │
+                      │    StockService                          │
+                      │          │                               │
+                      │          │ @Cacheable("stocks")          │
+                      │          ▼                               │
+                      │    ┌──────────┐                          │
+                      │    │          │                          │
+                      │    │  缓存代理 │                          │
+                      │    │   Proxy   │                          │
+                      │    │          │                          │
+                      │    └────┬─────┘                          │
+                      │         │                                │
+                      │    ┌────┴─────┐                          │
+                      │    │          │                          │
+                      │  ┌─▼──┐    ┌──▼───┐                     │
+                      │  │命中│    │未命中│                     │
+                      │  │HIT │    │ MISS  │                     │
+                      │  └──┬──┘    └──┬───┘                     │
+                      │     │         │                          │
+                      │     │         ▼                          │
+                      │     │    ┌──────────┐                    │
+                      │     │    │ 真实方法  │                    │
+                      │     │    │Actual    │                    │
+                      │     │    │ Method   │                    │
+                      │     │    └────┬─────┘                    │
+                      │     │         │                          │
+                      │     │         ▼                          │
+                      │     │    ┌──────────┐                    │
+                      │     │    │ 存入缓存  │                    │
+                      │     │    │Put to    │                    │
+                      │     │    │ Cache    │                    │
+                      │     │    └──────────┘                    │
+                      │     │         │                          │
+                      └─────┴─────────┴──────────────────────────┘
+                            │         │
+                            ▼         ▼
+                      ┌──────────────────────┐
+                      │     返回响应          │
+                      │  Return Response     │
+                      │                      │
+                      │  命中: 5-10ms        │
+                      │  未命中: 500-800ms   │
+                      └──────────────────────┘
 ```
 
 ---
 
-## 2. REQUEST-RESPONSE FLOW DIAGRAMS
-
-### A. Get Stock Quote - `GET /api/v1/stocks/{stockSymbol}`
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ POSTMAN REQUEST                                                             │
-│ ────────────────                                                            │
-│ Method: GET                                                                 │
-│ URL: http://localhost:8082/api/v1/stocks/GOOGL                              │
-└────────────────────────┬────────────────────────────────────────────────────┘
-                         │
-                         ▼
-        ┌────────────────────────────────────┐
-        │  StockController                   │
-        │  @GetMapping("/{stockSymbol}")     │
-        │                                    │
-        │  1. Receive: stockSymbol = "GOOGL" │
-        │  2. Convert to uppercase: "GOOGL"  │
-        │  3. Call stockService              │
-        │     .getStockForSymbol("GOOGL")    │
-        │  4. Record start time              │
-        │  5. Get response                   │
-        └────────────────┬────────────────────┘
-                         │
-                         ▼
-        ┌──────────────────────────────────────────┐
-        │  StockService                            │
-        │  @Cacheable(value="stocks",key="GOOGL")  │
-        │                                          │
-        │  Check Cache: "stocks" cache             │
-        │        ↓                                  │
-        │  ╔════════════════════╗                  │
-        │  ║  CACHE HIT?        ║                  │
-        │  ╚═════╤══════════════╝                  │
-        │        │                                 │
-        │   Yes  │   No                            │
-        │    ↓   └──────┐                          │
-        │    │          ▼                          │
-        │    │  ┌────────────────────────┐         │
-        │    │  │  StockClient           │         │
-        │    │  │                        │         │
-        │    │  │ WebClient.get()        │         │
-        │    │  │  └─ function:          │         │
-        │    │  │    GLOBAL_QUOTE        │         │
-        │    │  │  └─ symbol: GOOGL      │         │
-        │    │  │  └─ apikey: xxxxx      │         │
-        │    │  │                        │         │
-        │    │  │ HTTP Call to:          │         │
-        │    │  │ https://www.alphavantage.co/    │
-        │    │  └────────┬───────────────┘         │
-        │    │           │                         │
-        │    │           ▼                         │
-        │    │  AlphaVantageResponse               │
-        │    │  {                                  │
-        │    │    "Global Quote": {                │
-        │    │      "01. symbol": "GOOGL",         │
-        │    │      "05. price": "178.45",         │
-        │    │      "07. latest trading day"...    │
-        │    │    }                                │
-        │    │  }                                  │
-        │    │           │                         │
-        │    └───────────┼────────┐                │
-        │                │        │                │
-        │                ▼        ▼                │
-        │        ┌─────────────────────────┐      │
-        │        │ Parse & Build Response  │      │
-        │        │ StockResponse object    │      │
-        │        │ {                       │      │
-        │        │  symbol: "GOOGL",       │      │
-        │        │  price: "178.45",       │      │
-        │        │  lastUpdated: "2026-..." │     │
-        │        │ }                       │      │
-        │        └──────────┬──────────────┘      │
-        │                   │                     │
-        │                   ▼                     │
-        │        ┌─────────────────────────┐      │
-        │        │  Cache the Result       │      │
-        │        │  (In-Memory Cache)      │      │
-        │        │  Key: "GOOGL"           │      │
-        │        └──────────┬──────────────┘      │
-        │                   │                     │
-        └───────────────────┼─────────────────────┘
-                            │
-                            ▼
-        ┌───────────────────────────────────────┐
-        │  StockResponse JSON                   │
-        │  ──────────────────────────────────── │
-        │  {                                    │
-        │    "symbol": "GOOGL",                 │
-        │    "price": "178.45",                 │
-        │    "lastUpdated": "2026-06-07"        │
-        │  }                                    │
-        └───────────────┬───────────────────────┘
-                        │
-                        ▼
-        ┌──────────────────────────────────────┐
-        │  StockController                     │
-        │                                      │
-        │  6. Calculate request duration       │
-        │  7. Log: "GET /GOOGL returned in     │
-        │          XXms (price: 178.45)"       │
-        │  8. Return response to Postman       │
-        └──────────────┬───────────────────────┘
-                       │
-                       ▼
-        ┌──────────────────────────────────────┐
-        │ POSTMAN RESPONSE                     │
-        │ ────────────────────                 │
-        │ Status: 200 OK                       │
-        │ Content-Type: application/json       │
-        │                                      │
-        │ {                                    │
-        │   "symbol": "GOOGL",                 │
-        │   "price": "178.45",                 │
-        │   "lastUpdated": "2026-06-07"        │
-        │ }                                    │
-        └──────────────────────────────────────┘
-```
-
----
-
-### B. Get Favorites with Live Prices - `GET /api/v1/stocks/favorites`
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ POSTMAN REQUEST                                                             │
-│ ────────────────                                                            │
-│ Method: GET                                                                 │
-│ URL: http://localhost:8082/api/v1/stocks/favorites                           │
-└────────────────────────┬────────────────────────────────────────────────────┘
-                         │
-                         ▼
-        ┌──────────────────────────────────────┐
-        │  StockController                     │
-        │  @GetMapping("/favorites")           │
-        │                                      │
-        │  1. Record start time                │
-        │  2. Call stockService.               │
-        │     getFavoritesWithLivePrices()     │
-        └────────────────┬─────────────────────┘
-                         │
-                         ▼
-        ┌──────────────────────────────────────────────┐
-        │  StockService.getFavoritesWithLivePrices()   │
-        │                                              │
-        │  1. Query Database: findAll()                │
-        │     └─ Get all FavoriteStock entities        │
-        │                                              │
-        │  2. Stream.map() over favorites:             │
-        │     For each favorite (e.g., "GOOGL"):       │
-        │        │                                     │
-        │        ▼                                     │
-        │     getStockForSymbol("GOOGL")               │
-        │        ├─ Check cache: "stocks" "GOOGL"      │
-        │        │                                     │
-        │        ├─ IF CACHED: Return immediately      │
-        │        │                                     │
-        │        └─ IF NOT CACHED:                     │
-        │           ├─ Call StockClient                │
-        │           ├─ Call Alpha Vantage API          │
-        │           ├─ Cache result                    │
-        │           └─ Return StockResponse            │
-        │                                              │
-        │  3. Collect all StockResponse objects        │
-        │     into List<StockResponse>                 │
-        │                                              │
-        │  Result:                                     │
-        │  [                                           │
-        │    { symbol: "GOOGL", price: "178.45", ... },│
-        │    { symbol: "MSFT", price: "425.30", ... }, │
-        │    { symbol: "AAPL", price: "195.87", ... }  │
-        │  ]                                           │
-        └──────────────┬───────────────────────────────┘
-                       │
-                       ▼
-        ┌──────────────────────────────────────┐
-        │  StockController (continued)         │
-        │                                      │
-        │  3. Calculate duration               │
-        │  4. Log: "GET /favorites returned    │
-        │          3 stocks in XXms"           │
-        │  5. Return List<StockResponse>       │
-        └──────────────┬───────────────────────┘
-                       │
-                       ▼
-        ┌──────────────────────────────────────┐
-        │ POSTMAN RESPONSE                     │
-        │ ────────────────────                 │
-        │ Status: 200 OK                       │
-        │ Content-Type: application/json       │
-        │                                      │
-        │ [                                    │
-        │   {                                  │
-        │     "symbol": "GOOGL",               │
-        │     "price": "178.45",               │
-        │     "lastUpdated": "2026-06-07"      │
-        │   },                                 │
-        │   {                                  │
-        │     "symbol": "MSFT",                │
-        │     "price": "425.30",               │
-        │     "lastUpdated": "2026-06-07"      │
-        │   },                                 │
-        │   {                                  │
-        │     "symbol": "AAPL",                │
-        │     "price": "195.87",               │
-        │     "lastUpdated": "2026-06-07"      │
-        │   }                                  │
-        │ ]                                    │
-        └──────────────────────────────────────┘
-```
-
----
-
-### C. Add Favorite Stock - `POST /api/v1/stocks/favorites`
-
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ POSTMAN REQUEST                                                              │
-│ ────────────────                                                             │
-│ Method: POST                                                                 │
-│ URL: http://localhost:8082/api/v1/stocks/favorites                            │
-│ Content-Type: application/json                                               │
-│                                                                              │
-│ Body:                                                                        │
-│ {                                                                            │
-│   "symbol": "MSFT"                                                           │
-│ }                                                                            │
-└────────────────────────┬───────────────────────────────────────────────────┘
-                         │
-                         ▼
-        ┌─────────────────────────────────────────┐
-        │  StockController                        │
-        │  @PostMapping("/favorites")             │
-        │                                         │
-        │  1. Receive FavoriteStockRequest        │
-        │     { symbol: "MSFT" }                  │
-        │  2. Call stockService.addFavorite()     │
-        └────────────────┬────────────────────────┘
-                         │
-                         ▼
-        ┌─────────────────────────────────────────┐
-        │  StockService.addFavorite()             │
-        │  @Transactional                         │
-        │                                         │
-        │  1. Check if exists:                    │
-        │     favoriteStockRepository             │
-        │     .existsByStockSymbol("MSFT")        │
-        │        │                                │
-        │        ├─ EXISTS:                       │
-        │        │  Throw FavoriteAlreadyNotifies │
-        │        │  Exception                     │
-        │        │                                │
-        │        └─ NOT EXISTS:                   │
-        │           Create new entity             │
-        │                                         │
-        │  2. Build FavoriteStock entity:         │
-        │     {                                   │
-        │       stockSymbol: "MSFT"               │
-        │     }                                   │
-        │                                         │
-        │  3. Save to DB via Repository:          │
-        │     favoriteStockRepository.save()      │
-        │     └─ H2 INSERT query executed         │
-        │                                         │
-        │  4. Return saved entity                 │
-        │     {                                   │
-        │       id: 2,                            │
-        │       stockSymbol: "MSFT"               │
-        │     }                                   │
-        └──────────────┬───────────────────────────┘
-                       │
-                       ▼
-        ┌─────────────────────────────────────────┐
-        │  StockController (continued)            │
-        │                                         │
-        │  3. Return ResponseEntity<FavoriteStock>│
-        │     Status: 200 OK                      │
-        └──────────────┬───────────────────────────┘
-                       │
-                       ▼
-        ┌──────────────────────────────────────────┐
-        │ POSTMAN RESPONSE                         │
-        │ ──────────────────                       │
-        │ Status: 200 OK                           │
-        │ Content-Type: application/json           │
-        │                                          │
-        │ {                                        │
-        │   "id": 2,                               │
-        │   "stockSymbol": "MSFT"                  │
-        │ }                                        │
-        └──────────────────────────────────────────┘
-        
-        OR (if already exists)
-        
-        ┌──────────────────────────────────────────┐
-        │ POSTMAN RESPONSE (ERROR)                 │
-        │ ───────────────────────────────────────  │
-        │ Status: 400 Bad Request                  │
-        │ Content-Type: application/json           │
-        │                                          │
-        │ {                                        │
-        │   "error": "Favorite Already Exists",    │
-        │   "message": "MSFT is already in your... │
-        │   "status": 400                          │
-        │ }                                        │
-        └──────────────────────────────────────────┘
-```
-
----
-
-### D. Get Stock Price History - `GET /api/v1/stocks/{stockSymbol}/history?days=7`
-
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ POSTMAN REQUEST                                                              │
-│ ────────────────                                                             │
-│ Method: GET                                                                  │
-│ URL: http://localhost:8082/api/v1/stocks/GOOGL/history?days=7                │
-└────────────────────────┬───────────────────────────────────────────────────┘
-                         │
-                         ▼
-        ┌───────────────────────────────────────────┐
-        │  StockController                          │
-        │  @GetMapping("/{stockSymbol}/history")    │
-        │                                           │
-        │  1. Receive: stockSymbol = "GOOGL"        │
-        │             days = 7                      │
-        │  2. Convert to uppercase: "GOOGL"         │
-        │  3. Call stockClient.getStockHistory()    │
-        │     (Note: NO caching on history)         │
-        └────────────────┬────────────────────────────┘
-                         │
-                         ▼
-        ┌───────────────────────────────────────────┐
-        │  StockClient.getStockHistory()            │
-        │                                           │
-        │  1. WebClient.get()                       │
-        │     ├─ function: TIME_SERIES_DAILY        │
-        │     ├─ symbol: GOOGL                      │
-        │     └─ apikey: xxxxx                      │
-        │                                           │
-        │  2. HTTP GET to Alpha Vantage:            │
-        │     https://www.alphavantage.co/query?    │
-        │     function=TIME_SERIES_DAILY&           │
-        │     symbol=GOOGL&apikey=xxxxx             │
-        │                                           │
-        │  3. Response (100+ days of data):         │
-        │     {                                     │
-        │       "Meta Data": { ... },               │
-        │       "Time Series (Daily)": {            │
-        │         "2026-06-07": {                   │
-        │           "1. open": "175.50",            │
-        │           "2. high": "179.20",            │
-        │           "3. low": "174.80",             │
-        │           "4. close": "178.45",           │
-        │           "5. volume": "45328900"         │
-        │         },                                │
-        │         "2026-06-06": { ... },            │
-        │         ... (100+ entries)               │
-        │       }                                   │
-        │     }                                     │
-        │                                           │
-        │  4. Return StockHistoryResponse           │
-        └────────────────┬────────────────────────────┘
-                         │
-                         ▼
-        ┌───────────────────────────────────────────┐
-        │  StockController (continued)              │
-        │                                           │
-        │  4. Transform Response:                   │
-        │     └─ response.timeSeries().entrySet()   │
-        │        .limit(7)  ← Limit to 7 days      │
-        │        .map() → Convert to                │
-        │        DailyStockResponse objects         │
-        │                                           │
-        │     Result:                               │
-        │     [ DailyStockResponse,                 │
-        │       DailyStockResponse,                 │
-        │       ... (7 total) ]                     │
-        │                                           │
-        │  5. Return List<DailyStockResponse>       │
-        └────────────────┬────────────────────────────┘
-                         │
-                         ▼
-        ┌────────────────────────────────────────────┐
-        │ POSTMAN RESPONSE                           │
-        │ ────────────────────                       │
-        │ Status: 200 OK                             │
-        │ Content-Type: application/json             │
-        │                                            │
-        │ [                                          │
-        │   {                                        │
-        │     "date": "2026-06-07",                  │
-        │     "open": 175.50,                        │
-        │     "close": 178.45,                       │
-        │     "high": 179.20,                        │
-        │     "low": 174.80,                         │
-        │     "volume": 45328900                     │
-        │   },                                       │
-        │   {                                        │
-        │     "date": "2026-06-06",                  │
-        │     "open": 173.20,                        │
-        │     "close": 175.30,                       │
-        │     "high": 176.15,                        │
-        │     "low": 173.00,                         │
-        │     "volume": 42156700                     │
-        │   },                                       │
-        │   ...                                      │
-        │   (7 total entries)                        │
-        │ ]                                          │
-        └────────────────────────────────────────────┘
-```
-
----
-
-## 3. CACHING STRATEGY FLOW
-
-```
-┌────────────────────────────────────────────────────────────────────────────┐
-│ REQUEST COMES IN                                                           │
-│ GET /api/v1/stocks/GOOGL                                                   │
-└────────────────┬───────────────────────────────────────────────────────────┘
-                 │
-                 ▼
-        ┌────────────────────────────────────┐
-        │  Service Method Intercepted        │
-        │  @Cacheable(value="stocks",        │
-        │             key="GOOGL")           │
-        │                                    │
-        │  Spring Cache Abstraction checks:  │
-        └──────────┬───────────────┬─────────┘
-                   │               │
-            ┌──────┴──┐        ┌───┴──────┐
-            │          │        │          │
-            ▼          ▼        ▼          ▼
-        CACHE HIT   CACHE MISS  │          │
-            │          │        │          │
-            │          ├─ Call StockClient│
-            │          │        │          │
-            │          │   Execute Method │
-            │          │        │          │
-            │          ├─ Get AlphaVantage │
-            │          │ API Response      │
-            │          │        │          │
-            │          ├─ Parse & Create   │
-            │          │ StockResponse     │
-            │          │        │          │
-            │          └─ STORE IN CACHE   │
-            │                   │          │
-            └───────────────────┴──────────┘
-                        │
-                        │
-                Return Object (StockResponse)
-                        │
-                        ▼
-            ┌─────────────────────────┐
-            │  POSTMAN RECEIVES       │
-            │  {                      │
-            │    "symbol": "GOOGL",   │
-            │    "price": "178.45",   │
-            │    "lastUpdated": ...   │
-            │  }                      │
-            └─────────────────────────┘
-
-TIMING DIFFERENCE:
-─────────────────
-First Call (CACHE MISS):   ~500ms  (API call + parsing)
-Second Call (CACHE HIT):   ~5ms    (from memory)
-
-CACHE INVALIDATION:
-──────────────────
-- Cleared on application restart
-- Manual clear via Spring Cache API (if implemented)
-- For production: Use Redis with TTL
-```
-
----
-
-## 4. DETAILED SEQUENCE DIAGRAM
-
-```
-Postman          Controller           Service            Client         Database      API
-   │                 │                  │                 │               │             │
-   │                 │                  │                 │               │             │
-   │  GET /stocks/   │                  │                 │               │             │
-   │  GOOGL          │                  │                 │               │             │
-   ├────────────────>│                  │                 │               │             │
-   │                 │                  │                 │               │             │
-   │                 │ getStockForSymbol│                 │               │             │
-   │                 │ ("GOOGL")        │                 │               │             │
-   │                 ├─────────────────>│                 │               │             │
-   │                 │                  │                 │               │             │
-   │                 │                  │ Check Cache     │               │             │
-   │                 │                  │ "stocks":"GOOGL"│               │             │
-   │                 │                  ├──────┐          │               │             │
-   │                 │                  │      │ (MISS)    │               │             │
-   │                 │                  │<─────┘          │               │             │
-   │                 │                  │                 │               │             │
-   │                 │                  │ getStockQuote()│               │             │
-   │                 │                  ├────────────────>│               │             │
-   │                 │                  │                 │               │             │
-   │                 │                  │                 │ WebClient.get()           │
-   │                 │                  │                 ├──────────────────────────>│
-   │                 │                  │                 │                 QUERY     │
-   │                 │                  │                 │    function:GLOBAL_QUOTE  │
-   │                 │                  │                 │    symbol:GOOGL           │
-   │                 │                  │                 │    apikey:xxxxx           │
-   │                 │                  │                 │                           │
-   │                 │                  │                 │ Process                   │
-   │                 │                  │                 │<──────────────────────────┤
-   │                 │                  │                 │                           │
-   │                 │                  │< AlphaVantageResponse                       │
-   │                 │                  │    {globalQuote:...}                        │
-   │                 │                  │                 │                           │
-   │                 │<─ StockResponse  │                 │                           │
-   │                 │  {symbol,price}  │                 │                           │
-   │                 │                  │[Store in Cache] │                           │
-   │                 │                  │                 │                           │
-   │<─---- {symbol,price,lastUpdated}───│                 │                           │
-   │   HTTP 200 OK   │                  │                 │               │             │
-   │                 │                  │                 │               │             │
-   └─────────────────────────────────────────────────────────────────────────────────────>
-```
-
----
-
-## 5. QUICK REFERENCE TABLE
-
-| Endpoint | Method | Cache | External API Call | Response Time |
-|----------|--------|-------|------------------|----------------|
-| `/stocks/{symbol}` | GET | ✅ Yes | On cache miss | 5ms (cached), 500ms+ (fresh) |
-| `/stocks/{symbol}/overview` | GET | ✅ Yes | On cache miss | 5ms (cached), 500ms+ (fresh) |
-| `/stocks/{symbol}/history` | GET | ❌ No | Always | 500ms+ (always fresh) |
-| `/stocks/favorites` | POST | ❌ N/A | No | 10-20ms (DB write) |
-| `/stocks/favorites` | GET | ✅ (per stock) | Per stock | 5ms+ depending on # of stocks |
-
----
-
-## 6. CACHE BEHAVIOR EXAMPLE
-
-```
-Scenario: User requests GOOGL stock three times
-
-REQUEST 1 (T=0ms):
-─────────────────
-GET /api/v1/stocks/GOOGL
-    │
-    ├─ Cache lookup: "stocks" → "GOOGL" → NOT FOUND
-    ├─ Call Alpha Vantage API (takes ~500ms)
-    ├─ Get response: {symbol: GOOGL, price: 178.45}
-    ├─ Cache result: cache.put("GOOGL", response)
-    └─ Return to Postman (500ms total)
-
-REQUEST 2 (T=1000ms):
-────────────────────
-GET /api/v1/stocks/GOOGL
-    │
-    ├─ Cache lookup: "stocks" → "GOOGL" → FOUND!
-    ├─ Return cached response immediately
-    └─ Return to Postman (5ms total) ← 100x faster!
-
-REQUEST 3 (T=2000ms):
-────────────────────
-GET /api/v1/stocks/GOOGL
-    │
-    ├─ Cache lookup: "stocks" → "GOOGL" → STILL CACHED
-    ├─ Return cached response immediately
-    └─ Return to Postman (5ms total)
-
-CACHE SIZE & PERSISTENCE:
-─────────────────────────
-- Size: Limited by JVM heap memory
-- Persistence: In-memory only (lost on restart)
-- Suitable for: Development, Demo applications
-- For Production: Upgrade to Redis for persistent, distributed cache
-```
-
----
-
-## 7. ERROR HANDLING FLOW
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│ REQUEST WITH ERROR SCENARIO                                             │
-│ POST /api/v1/stocks/favorites                                           │
-│ Body: { "symbol": "GOOGL" } (already added before)                      │
-└──────────────────┬──────────────────────────────────────────────────────┘
-                   │
-                   ▼
-        ┌──────────────────────────────────────┐
-        │  StockController                     │
-        │  @PostMapping("/favorites")          │
-        │                                      │
-        │  parseRequest → FavoriteStockRequest │
-        │  call: stockService.addFavorite()    │
-        └──────────────────┬───────────────────┘
-                           │
-                           ▼
-        ┌──────────────────────────────────────────┐
-        │  StockService.addFavorite()              │
-        │                                          │
-        │  Check:                                  │
-        │  favoriteStockRepository                 │
-        │  .existsByStockSymbol("GOOGL")           │
-        │     → TRUE (already exists!)             │
-        │                                          │
-        │  throw FavoriteAlreadyExistsException    │
-        │       ("GOOGL already in favorites")     │
-        └──────────────────┬────────────────────────┘
-                           │
-                           ▼ (Exception bubbles up)
-        ┌──────────────────────────────────────────┐
-        │  GlobalExceptionHandler                  │
-        │  @ControllerAdvice                       │
-        │                                          │
-        │  Catches: FavoriteAlreadyExistsException │
-        │  Maps to HTTP 400 Bad Request            │
-        │                                          │
-        │  Creates error response:                 │
-        │  {                                       │
-        │    "error": "Favorite Already Exists",   │
-        │    "message": "GOOGL is already in...",  │
-        │    "status": 400                         │
-        │  }                                       │
-        └──────────────────┬────────────────────────┘
-                           │
-                           ▼
-        ┌──────────────────────────────────────────────┐
-        │ POSTMAN RESPONSE (ERROR)                     │
-        │                                              │
-        │ Status: 400 Bad Request                      │
-        │ Content-Type: application/json               │
-        │                                              │
-        │ {                                            │
-        │   "error": "Favorite Already Exists",        │
-        │   "message": "GOOGL is already in favorites",│
-        │   "status": 400                              │
-        │ }                                            │
-        └──────────────────────────────────────────────┘
-```
-
----
-
-## 8. DATABASE INTERACTION FLOW
+## 8. 数据库交互流程
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ POST /api/v1/stocks/favorites (Add to Favorites)               │
+│ POST /api/v1/stocks/favorites (添加到自选股)                     │
 └──────────────────┬──────────────────────────────────────────────┘
                    │
                    ▼
         ┌────────────────────────────────┐
         │  StockService.addFavorite()    │
         │                                │
-        │  1. Check existence:           │
+        │  1. 检查是否已存在:             │
         │     SELECT COUNT(*)            │
         │     FROM favorite_stocks       │
         │     WHERE stock_symbol = 'MSFT'│
         │           │                    │
-        │           ├─ Row count = 0     │
-        │           │  Continue...       │
+        │           ├─ 行数 = 0          │
+        │           │  继续添加...       │
         │           │                    │
-        │           └─ Row count > 0     │
-        │              Throw Exception   │
+        │           └─ 行数 > 0          │
+        │             抛出异常           │
         │                                │
-        │  2. Create entity:             │
+        │  2. 创建实体:                  │
         │     FavoriteStock {            │
         │       stockSymbol: "MSFT"      │
         │     }                          │
         │                                │
-        │  3. Save to Repository:        │
+        │  3. 保存到数据库:              │
         │     INSERT INTO favorite_stocks│
         │     (stock_symbol)             │
         │     VALUES ('MSFT')            │
         │                    │           │
         │                    ▼           │
-        │  4. Return saved entity:       │
+        │  4. 返回已保存的实体:          │
         │     {                          │
         │       id: 2,                   │
         │       stockSymbol: "MSFT"      │
@@ -812,86 +351,85 @@ CACHE SIZE & PERSISTENCE:
         └────────────────┬───────────────┘
                          │
                          ▼
-        Postman receives result
+        Postman 收到结果
 ```
 
 ---
 
-## 9. APPLICATION STARTUP FLOW
+## 9. 应用启动流程
 
 ```
-StartApplication
+启动应用
         │
         ▼
 @SpringBootApplication
         │
-        ├─ Enable Caching: @EnableCaching
+        ├─ 启用缓存: @EnableCaching
         │
-        ├─ Initialize Context
+        ├─ 初始化上下文
         │
-        ├─ Load Properties: application.properties
-        │  ├─ Alpha Vantage API Key
-        │  ├─ Alpha Vantage Base URL
-        │  ├─ Database Configuration (H2)
-        │  ├─ Server Port (8082)
-        │  └─ Cache Configuration
+        ├─ 加载配置文件: application.properties
+        │  ├─ Alpha Vantage API 密钥（Key）
+        │  ├─ Alpha Vantage 接口地址（Base URL）
+        │  ├─ 数据库配置（H2）
+        │  ├─ 服务器端口（8082）
+        │  └─ 缓存配置
         │
-        ├─ Create Beans
-        │  ├─ WebClient (for RestAPI calls)
-        │  ├─ DataSource (H2 Database)
+        ├─ 创建 Bean
+        │  ├─ WebClient (用于调用外部 REST API)
+        │  ├─ DataSource (H2 数据库)
         │  ├─ SessionFactory (JPA/Hibernate)
         │  ├─ StockController
         │  ├─ StockService
         │  ├─ StockClient
         │  ├─ FavoriteStockRepository
-        │  └─ Cache Manager (Simple In-Memory)
+        │  └─ Cache Manager (内存缓存)
         │
-        ├─ Initialize Database Schema
+        ├─ 初始化数据库表结构
         │  ├─ spring.jpa.hibernate.ddl-auto=update
-        │  └─ Create table: favorite_stocks if not exists
+        │  └─ 创建表: favorite_stocks (如果不存在)
         │
-        ├─ Initialize Caches
-        │  ├─ Cache: "stocks" (empty)
-        │  └─ Cache: "stockOverviews" (empty)
+        ├─ 初始化缓存
+        │  ├─ 缓存: "stocks" (空)
+        │  └─ 缓存: "stockOverviews" (空)
         │
-        ├─ Start Embedded Server
-        │  └─ Server listening on http://localhost:8082
+        ├─ 启动内嵌服务器
+        │  └─ 服务器监听 http://localhost:8082
         │
-        └─ Ready for Requests ✓
+        └─ 就绪，等待请求 ✓
 ```
 
 ---
 
-## Key Takeaways
+## 要点总结
 
-### Data Flow Summary:
-1. **Postman** sends HTTP GET/POST request
-2. **Controller** receives and validates request, logs timing
-3. **Service** implements business logic, manages caching via `@Cacheable`
-4. **Cache** intercepts calls:
-   - **HIT**: Returns instantly (5ms)
-   - **MISS**: Proceeds to next layer
-5. **Repository** (if needed) queries H2 Database
-6. **Client** (if needed) makes HTTP call to Alpha Vantage API
-7. **Response** is cached and returned to **Postman**
+### 数据流概要：
+1. **Postman** 发送 HTTP GET/POST 请求
+2. **Controller** 接收并验证请求，记录耗时日志
+3. **Service** 执行业务逻辑，通过 `@Cacheable` 管理缓存
+4. **缓存** 拦截调用：
+   - **命中（HIT）**：立即返回 (5ms)
+   - **未命中（MISS）**：继续往下执行
+5. **Repository**（需要时）查询 H2 数据库
+6. **Client**（需要时）调用 Alpha Vantage API
+7. **响应** 被缓存后返回给 **Postman**
 
-### Performance Tips:
-- First call to a stock: ~500-800ms (external API call)
-- Second+ calls: ~5-10ms (cached)
-- Get Favorites can trigger multiple API calls (affected by rate limits)
-- Use cache hits to reduce Alpha Vantage API calls (5 calls/min limit)
+### 性能提示：
+- 首次查询某只股票：~500-800ms（调外部 API）
+- 第二次及之后：~5-10ms（缓存命中）
+- 查看自选股可能触发多次 API 调用（受频率限制影响）
+- 善用缓存可以减少 Alpha Vantage API 调用（免费版每分钟 5 次限制）
 
-### Technology Stack:
-- **REST Framework**: Spring Boot WebMvc
-- **Reactive Client**: Spring WebFlux (WebClient)
-- **Database**: H2 In-Memory
-- **Cache**: Spring Cache Abstraction (Simple)
-- **ORM**: JPA/Hibernate
-- **JSON**: Jackson (automatic serialization)
+### 技术栈：
+- **REST 框架**：Spring Boot WebMvc
+- **响应式客户端**：Spring WebFlux (WebClient)
+- **数据库**：H2 内存数据库
+- **缓存**：Spring Cache 抽象（Simple 实现）
+- **ORM**：JPA/Hibernate
+- **JSON**：Jackson（自动序列化）
 
 ---
 
-**Generated**: June 13, 2026  
-**Application Version**: Stock Tracker v0.0.1  
-**Framework**: Spring Boot 4.0.6 | Java 21
-
+**生成日期**：2026 年 6 月 13 日  
+**应用版本**：Stock Tracker v0.0.1  
+**框架**：Spring Boot 4.0.6 | Java 21
