@@ -5,6 +5,8 @@ import com.abhinav.stocktracker.dto.AlphaVantageResponse;
 import com.abhinav.stocktracker.dto.DailyStockResponse;
 import com.abhinav.stocktracker.dto.StockHistoryResponse;
 import com.abhinav.stocktracker.dto.StockOverviewResponse;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +34,7 @@ public class StockClient {
 
     private static final Logger log = LoggerFactory.getLogger(StockClient.class);
    @StockApiRetry
+   @CircuitBreaker(name = "stockQuote", fallbackMethod = "fallbackGetStockQuote")
     public AlphaVantageResponse getStockQuote(String symbol) {
             return webClient.get()
                     .uri(builder -> builder
@@ -45,6 +48,7 @@ public class StockClient {
     }
 
     @StockApiRetry
+    @CircuitBreaker(name = "StockOverview", fallbackMethod = "fallbackgetStockOverview")
     public StockOverviewResponse  getStockOverview(final String symbol) {
         return webClient.get()
                 .uri(builder -> builder
@@ -57,6 +61,7 @@ public class StockClient {
                 .block();
     }
     @StockApiRetry
+    @CircuitBreaker(name = "StockHistory", fallbackMethod = "fallbackgetStockHistory")
     public StockHistoryResponse getStockHistory(String stockSymbol) {
         return webClient.get()
                 .uri(builder -> builder
@@ -71,16 +76,43 @@ public class StockClient {
     @Recover
     public AlphaVantageResponse recoverGetStockQuote(Exception e, String symbol) {
         log.warn("All retries exhausted for symbol: {}", symbol);
-        return null;  // 返回 null，Service 层会处理成 price: "0.0"
+        return null;
     }
     @Recover
-    public StockOverviewResponse getStockOverview(Exception e, String symbol) {
+    public StockOverviewResponse recoverGetStockOverview(Exception e, String symbol) {
         log.warn("All retries exhausted for symbol: {}", symbol);
-        return null;  // 返回 null，Service 层会处理成 price: "0.0"
+        return null;
     }
     @Recover
-    public StockHistoryResponse getStockHistory(Exception e, String symbol) {
+    public StockHistoryResponse recoverGetStockHistory(Exception e, String symbol) {
         log.warn("All retries exhausted for symbol: {}", symbol);
-        return null;  // 返回 null，Service 层会处理成 price: "0.0"
+        return null;
+    }
+    private AlphaVantageResponse fallbackGetStockQuote(Throwable t, String symbol) {
+        log.warn("Circuit breaker triggered for symbol: {}", symbol);
+        if (t instanceof CallNotPermittedException) {
+            log.warn("熔断器已打开，直接降级");
+        } else {
+            log.error("API调用异常，重试已耗尽", t);
+        }
+        return null;
+    }
+    private AlphaVantageResponse fallbackgetStockOverview(Throwable t, String symbol) {
+        log.warn("Circuit breaker triggered for symbol: {}", symbol);
+        if (t instanceof CallNotPermittedException) {
+            log.warn("熔断器已打开，直接降级");
+        } else {
+            log.error("API调用异常，重试已耗尽", t);
+        }
+        return null;
+    }
+    private AlphaVantageResponse fallbackgetStockHistory(Throwable t, String symbol) {
+        log.warn("Circuit breaker triggered for symbol: {}", symbol);
+        if (t instanceof CallNotPermittedException) {
+            log.warn("熔断器已打开，直接降级");
+        } else {
+            log.error("API调用异常，重试已耗尽", t);
+        }
+        return null;
     }
 }

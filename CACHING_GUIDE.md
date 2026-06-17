@@ -1,179 +1,178 @@
-# Stock Tracker - Caching & Rate Limit Guide
+# Stock Tracker - »º´æÓëËÙÂÊÏŞÖÆÖ¸ÄÏ
 
-## What Happened with Rate Limiting
+## ¹ØÓÚËÙÂÊÏŞÖÆ
 
-You hit the **AlphaVantage API rate limit** (5 requests per minute on the free tier). After hitting this limit, the API returns empty quotes, and the app logs a warning and returns a placeholder response:
+ÄãÓöµ½ÁË **AlphaVantage API µÄËÙÂÊÏŞÖÆ**£¨Ãâ·Ñ°æÃ¿·ÖÖÓ 5 ´ÎÇëÇó£©¡£´ïµ½ÏŞÖÆºó£¬API »á·µ»Ø¿Õ±¨¼Û£¬Ó¦ÓÃ»á¼ÇÂ¼¾¯¸æ²¢·µ»ØÕ¼Î»ÏìÓ¦£º
 - `price: "0.0"`
 - `lastUpdated: null`
 
-This is **expected behavior** and prevents errors when the API is temporarily unavailable.
+ÕâÊÇ**Ô¤ÆÚĞĞÎª**£¬ÓÃÓÚ·ÀÖ¹ API ÔİÊ±²»¿ÉÓÃÊ±³ö´í¡£
 
-## How Caching Works
+## »º´æµÄ¹¤×÷Ô­Àí
 
-**Caching is now enabled** for faster responses:
+**»º´æÒÑÆôÓÃ**£¬¿É¼Ó¿ìÏìÓ¦ËÙ¶È£º
 
-### Cached Endpoints
-1. **GET `/api/v1/stocks/{symbol}`** - Caches stock quotes by symbol
-2. **GET `/api/v1/stocks/{symbol}/overview`** - Caches stock overviews by symbol
+### ÒÑ»º´æµÄ½Ó¿Ú
+1. **GET `/api/v1/stocks/{symbol}`** ¡ª °´¹ÉÆ±´úÂë»º´æÊµÊ±±¨¼Û
+2. **GET `/api/v1/stocks/{symbol}/overview`** ¡ª °´¹ÉÆ±´úÂë»º´æ¹«Ë¾¸Å¿ö
 
-### Cache Key
-Each cache entry is keyed by **stock symbol**. Example:
-- First call to `GET /AAPL` â†’ API call (slow, ~500ms-2s)
-- Second call to `GET /AAPL` â†’ Cache hit (fast, <5ms)
-- First call to `GET GOOGL` â†’ New cache entry (API call again)
+### »º´æ¼ü
+Ã¿¸ö»º´æÌõÄ¿ÒÔ**¹ÉÆ±´úÂë**Îª¼ü¡£ÀıÈç£º
+- µÚÒ»´Îµ÷ÓÃ `GET /AAPL` ¡ú µ÷ÓÃ API£¨Âı£¬Ô¼ 500ms-2s£©
+- µÚ¶ş´Îµ÷ÓÃ `GET /AAPL` ¡ú ÃüÖĞ»º´æ£¨¿ì£¬<5ms£©
+- µÚÒ»´Îµ÷ÓÃ `GET /GOOGL` ¡ú ĞÂ½¨»º´æÌõÄ¿£¨ÔÙ´Îµ÷ÓÃ API£©
 
-### Cache Type
-- **In-memory cache** (Spring's built-in ConcurrentHashMap)
-- Caches available: `stocks`, `stockOverviews`
-- Configured in `application.properties`
+### »º´æÀàĞÍ
+- **ÄÚ´æ»º´æ**£¨Spring ÄÚÖÃµÄ ConcurrentHashMap£©
+- ¿ÉÓÃ»º´æÇøÓò£º`stocks`¡¢`stockOverviews`
+- ÔÚ `application.properties` ÖĞÅäÖÃ
 
-## Testing Cache Behavior
+## ²âÊÔ»º´æĞ§¹û
 
-### Option 1: Use the Provided Test Script
+### ·½Ê½Ò»£ºÊ¹ÓÃ²âÊÔ½Å±¾
 
 ```powershell
-# Run this from your project root
+# ÔÚÏîÄ¿¸ùÄ¿Â¼ÏÂÔËĞĞ
 .\test-cache.ps1
 ```
 
-This will:
-- Make 3 requests to the same symbol
-- Show response times for each request
-- Demonstrate cache speedup on calls 2-3
+½Å±¾»á£º
+- ¶ÔÍ¬Ò»¸ö¹ÉÆ±´úÂë·¢Æğ 3 ´ÎÇëÇó
+- Õ¹Ê¾Ã¿´ÎµÄÏìÓ¦Ê±¼ä
+- ÑİÊ¾µÚ 2-3 ´ÎÇëÇóµÄ»º´æ¼ÓËÙĞ§¹û
 
-### Option 2: Manual Testing with Postman
+### ·½Ê½¶ş£ºÓÃ Postman ÊÖ¶¯²âÊÔ
 
-1. **Start the app:**
+1. **Æô¶¯Ó¦ÓÃ£º**
    ```bash
    mvn spring-boot:run
    ```
 
-2. **Make 3 GET requests to the same symbol:**
+2. **¶ÔÍ¬Ò»¸ö¹ÉÆ±´úÂë·¢Æğ 3 ´Î GET ÇëÇó£º**
    ```
    GET http://localhost:8082/api/v1/stocks/AAPL
    ```
 
-3. **Observe response times:**
-   - Request 1: Slow (API call)
-   - Requests 2-3: Fast (cache hit)
+3. **¹Û²ìÏìÓ¦Ê±¼ä£º**
+   - ÇëÇó 1£ºÂı£¨µ÷ÓÃ API£©
+   - ÇëÇó 2-3£º¿ì£¨ÃüÖĞ»º´æ£©
 
-4. **Check server logs** for cache activity:
+4. **²é¿´·şÎñ¶ËÈÕÖ¾** ÖĞµÄ»º´æ»î¶¯£º
    ```
    [INFO] Fetching stock quote for symbol: AAPL (cache miss)
    [INFO] Successfully fetched quote for AAPL. Duration: 1234ms
    [INFO] GET /AAPL returned in 1234ms (price: 235.50)
    ```
 
-   Next calls show:
+   ºóĞøÇëÇó»áÏÔÊ¾£º
    ```
    [INFO] GET /AAPL returned in 2ms (price: 235.50)
    ```
 
-## Handling Rate Limits
+## ´¦ÀíËÙÂÊÏŞÖÆ
 
-### Currently
-When you hit the rate limit (5 calls/min):
-- The API returns no data
-- Cache stores the placeholder response (0.0, null)
-- Subsequent calls return the cached placeholder instantly
+### µ±Ç°´¦Àí·½Ê½
+´ïµ½ËÙÂÊÏŞÖÆ£¨Ã¿·ÖÖÓ 5 ´Î£©Ê±£º
+- API ²»·µ»ØÊı¾İ
+- »º´æ´æ´¢Õ¼Î»ÏìÓ¦£¨0.0, null£©
+- ºóĞøÇëÇóÁ¢¼´·µ»Ø»º´æµÄÕ¼Î»Êı¾İ
 
-### Recommendation: Implement Exponential Backoff
-To better handle rate limits in the future, consider:
-1. Add Resilience4j `@Retry` and `@CircuitBreaker` annotations
-2. Implement retry logic with exponential backoff
-3. Cache responses longer when API is rate-limited
-4. Return HTTP 429 (Too Many Requests) to clients
+### ½¨Òé£ºÊµÏÖÖ¸ÊıÍË±Ü
+ÎªÁË¸üºÃµØ´¦ÀíËÙÂÊÏŞÖÆ£¬ºóĞø¿ÉÒÔ¿¼ÂÇ£º
+1. Ìí¼Ó Resilience4j µÄ `@Retry` ºÍ `@CircuitBreaker` ×¢½â
+2. ÊµÏÖ´øÖ¸ÊıÍË±ÜµÄÖØÊÔÂß¼­
+3. ÔÚ API ±»ÏŞÁ÷Ê±ÑÓ³¤»º´æÊ±¼ä
+4. Ïò¿Í»§¶Ë·µ»Ø HTTP 429£¨Too Many Requests£©
 
-## Configuration
+## ÅäÖÃÏî
 
-**Cache Settings** in `application.properties`:
+**»º´æÉèÖÃ**£¨ÔÚ `application.properties` ÖĞ£©£º
 ```properties
 spring.cache.type=simple
 spring.cache.cache-names=stocks,stockOverviews
 logging.level.org.springframework.cache=DEBUG
 ```
 
-**To disable caching** (if needed):
-- Remove `@EnableCaching` from `StocktrackerApplication.java`
-- Set `spring.cache.type=none` in `application.properties`
+**ÈçĞè½ûÓÃ»º´æ£º**
+- ´Ó `StocktrackerApplication.java` ÖĞÒÆ³ı `@EnableCaching`
+- ÔÚ `application.properties` ÖĞÉèÖÃ `spring.cache.type=none`
 
-**To enable external caching** (Redis, Memcached):
-- Add dependency: `spring-boot-starter-data-redis`
-- Change: `spring.cache.type=redis`
-- Update properties with Redis connection details
+**ÈçĞèÆôÓÃÍâ²¿»º´æ£¨Redis¡¢Memcached£©£º**
+- Ìí¼ÓÒÀÀµ£º`spring-boot-starter-data-redis`
+- ĞŞ¸Ä£º`spring.cache.type=redis`
+- ¸üĞÂ Redis Á¬½ÓÅäÖÃ
 
-## Improvement Plan
+## ¸Ä½ø¼Æ»®
 
-### Phase 1 (Current)
-âœ… Basic in-memory caching with @Cacheable
+### µÚÒ»½×¶Î£¨µ±Ç°ÒÑÍê³É£©
+? »ùÓÚ @Cacheable µÄ»ù´¡ÄÚ´æ»º´æ
 
-### Phase 2 (To Do)
-- [ ] Add Retry logic with exponential backoff
-- [ ] Circuit breaker pattern for API failures
-- [ ] Cache eviction policies (TTL-based)
-- [ ] Rate limit error response (HTTP 429)
+### µÚ¶ş½×¶Î£¨´ı°ì£©
+- [ ] Ìí¼ÓÖ¸ÊıÍË±ÜÖØÊÔÂß¼­
+- [ ] API ÈÛ¶ÏÆ÷Ä£Ê½£¨Circuit Breaker£©
+- [ ] »º´æ¹ıÆÚ²ßÂÔ£¨»ùÓÚ TTL£©
+- [ ] ËÙÂÊÏŞÖÆ´íÎóÏìÓ¦£¨HTTP 429£©
 
-### Phase 3 (Future)
-- [ ] Switch to Redis for distributed caching
-- [ ] Cache metrics/statistics endpoint
-- [ ] Cache warming strategy for popular stocks
+### µÚÈı½×¶Î£¨½«À´£©
+- [ ] ÇĞ»»Îª Redis ·Ö²¼Ê½»º´æ
+- [ ] »º´æ¼à¿ØÍ³¼Æ½Ó¿Ú
+- [ ] ÈÈÃÅ¹ÉÆ±»º´æÔ¤ÈÈ²ßÂÔ
 
-## API Endpoints
+## API ½Ó¿Ú
 
-### Get Stock Quote (Cached)
+### »ñÈ¡¹ÉÆ±±¨¼Û£¨ÒÑ»º´æ£©
 ```
 GET /api/v1/stocks/{symbol}
 Response: { symbol, price, lastUpdated }
 ```
 
-### Get Stock Overview (Cached)
+### »ñÈ¡¹«Ë¾¸Å¿ö£¨ÒÑ»º´æ£©
 ```
 GET /api/v1/stocks/{symbol}/overview
 Response: { company info, metrics, etc }
 ```
 
-### Get Favorites with Prices (Uses Cache)
+### »ñÈ¡×ÔÑ¡¹ÉÁĞ±í£¨Ê¹ÓÃ»º´æ£©
 ```
 GET /api/v1/stocks/favorites
 Response: List<{ symbol, price, lastUpdated }>
 Note: Each favorite stock lookup uses the cache
 ```
 
-### Add Favorite (Not Cached)
+### Ìí¼Ó×ÔÑ¡¹É£¨Î´»º´æ£©
 ```
 POST /api/v1/stocks/favorites
 Body: { "symbol": "AAPL" }
 Response: { id, stockSymbol }
 ```
 
-## Troubleshooting
+## ³£¼ûÎÊÌâÅÅ²é
 
-### Issue: Getting "0.0" price and null lastUpdated
-**Cause:** Hit AlphaVantage rate limit (5/min free tier)
-**Solution:** 
-- Wait 1 minute before next request
-- Consider upgrading to paid AlphaVantage plan for higher limits
+### ÎÊÌâ£º·µ»Ø "0.0" ¼Û¸ñºÍ null ¸üĞÂÊ±¼ä
+**Ô­Òò£º** ´ïµ½ AlphaVantage ËÙÂÊÏŞÖÆ£¨Ãâ·Ñ°æÃ¿·ÖÖÓ 5 ´Î£©
+**½â¾ö°ì·¨£º**
+- µÈ´ı 1 ·ÖÖÓºóÖØĞÂÇëÇó
+- ¿¼ÂÇÉı¼¶µ½ AlphaVantage ¸¶·Ñ¼Æ»®ÒÔ»ñÈ¡¸ü¸ßÏŞ¶î
 
-### Issue: Not seeing cache speedup
-**Check:**
-1. Looking at same symbol (cache is per-symbol, not global)
-2. Server logs for "cache miss" vs "cache hit" messages
-3. Response time differences (should be 100x+ faster on cache hit)
+### ÎÊÌâ£ºÃ»¿´µ½»º´æ¼ÓËÙĞ§¹û
+**¼ì²éÒÔÏÂÊÂÏî£º**
+1. ÊÇ·ñÇëÇóµÄÊÇÍ¬Ò»¸ö¹ÉÆ±´úÂë£¨»º´æ°´¹ÉÆ±´úÂëÇø·Ö£¬²»ÊÇÈ«¾ÖµÄ£©
+2. ·şÎñ¶ËÈÕÖ¾ÖĞ "cache miss" ºÍ "cache hit" µÄÏûÏ¢
+3. ÏìÓ¦Ê±¼ä²îÒì£¨ÃüÖĞ»º´æºóÓ¦¿ì 100 ±¶ÒÔÉÏ£©
 
-### Issue: Cache not working
-**Verify:**
-- `@EnableCaching` is present on `StocktrackerApplication`
-- `@Cacheable` annotations are on service methods
-- `spring.cache.type=simple` is set in properties
-- Rebuild/redeploy the app
+### ÎÊÌâ£º»º´æ²»ÉúĞ§
+**ÇëÈ·ÈÏ£º**
+- `StocktrackerApplication` ÉÏÊÇ·ñÒÑÌí¼Ó `@EnableCaching`
+- ·şÎñ·½·¨ÉÏÊÇ·ñÒÑÌí¼Ó `@Cacheable` ×¢½â
+- `application.properties` ÖĞÊÇ·ñÉèÖÃÁË `spring.cache.type=simple`
+- ÊÇ·ñÒÑÖØĞÂ¹¹½¨/²¿ÊğÓ¦ÓÃ
 
-## Example Test Output
+## ²âÊÔÊä³öÊ¾Àı
 
 ```
-âœ“ Call 1 (CACHE MISS): 1234ms - API call
-âœ“ Call 2 (CACHE HIT):     2ms - Instant
-âœ“ Call 3 (CACHE HIT):     1ms - Instant
+? Call 1 (CACHE MISS): 1234ms - API call
+? Call 2 (CACHE HIT):     2ms - Instant
+? Call 3 (CACHE HIT):     1ms - Instant
 
 Speedup: 600x faster on cached calls!
 ```
-

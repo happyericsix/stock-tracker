@@ -34,47 +34,47 @@ Stock Tracker is a REST API that integrates with the **Alpha Vantage API** to pr
 ### High-Level Architecture Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      REST API Client                         │
-└────────────────────────────┬────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────┐
-│                  Spring Boot Controller                      │
-│              (StockController @ /api/v1/stocks)             │
-└────────────────────────────┬────────────────────────────────┘
-                             │
-                    ┌────────┴────────┐
-                    ▼                 ▼
-         ┌──────────────────┐  ┌──────────────────┐
-         │  StockService   │  │  StockClient     │
-         │   (Business     │  │  (External API   │
-         │    Logic)       │  │   Integration)   │
-         └────────┬────────┘  └────────┬─────────┘
-                  │                    │
-         ┌────────┴────────┐    ┌──────┴─────────┐
-         ▼                 ▼    ▼                 ▼
-    ┌────────────┐  ┌──────────────────┐  ┌──────────────┐
-    │  Database  │  │  In-Memory Cache │  │Alpha Vantage │
-    │    (H2)    │  │   (Spring Cache) │  │     API      │
-    └────────────┘  └──────────────────┘  └──────────────┘
+┌─────────────────────────────────────────────────────────────�?
+�?                     REST API Client                         �?
+└────────────────────────────┬────────────────────────────────�?
+                             �?
+                             �?
+┌─────────────────────────────────────────────────────────────�?
+�?                 Spring Boot Controller                      �?
+�?             (StockController @ /api/v1/stocks)             �?
+└────────────────────────────┬────────────────────────────────�?
+                             �?
+                    ┌────────┴────────�?
+                    �?                �?
+         ┌──────────────────�? ┌──────────────────�?
+         �? StockService   �? �? StockClient     �?
+         �?  (Business     �? �? (External API   �?
+         �?   Logic)       �? �?  Integration)   �?
+         └────────┬────────�? └────────┬─────────�?
+                  �?                   �?
+         ┌────────┴────────�?   ┌──────┴─────────�?
+         �?                �?   �?                �?
+    ┌────────────�? ┌──────────────────�? ┌──────────────�?
+    �? Database  �? �? In-Memory Cache �? │Alpha Vantage �?
+    �?   (H2)    �? �?  (Spring Cache) �? �?    API      �?
+    └────────────�? └──────────────────�? └──────────────�?
 ```
 
 ### Data Flow Architecture
 
 ```
 CLIENT REQUEST
-       │
-       ▼
+       �?
+       �?
    CONTROLLER
-       │
-       ├─── Cache Check ───► HIT ──► Return Cached Value
-       │
+       �?
+       ├─── Cache Check ───�?HIT ──�?Return Cached Value
+       �?
        └─── Cache MISS ◄─── Hit DB or Call External API
-              │
-              ├─► Favorites: Fetch from DB → Get live prices → Cache & Return
-              │
-              └─► Stock Data: Call Alpha Vantage → Parse Response → Cache & Return
+              �?
+              ├─�?Favorites: Fetch from DB �?Get live prices �?Cache & Return
+              �?
+              └─�?Stock Data: Call Alpha Vantage �?Parse Response �?Cache & Return
 ```
 
 ### Layer Breakdown
@@ -165,44 +165,44 @@ java -jar target/stocktracker-0.0.1-SNAPSHOT.jar
 
 ### 4. Verify Application is Running
 
-The application will start on `http://localhost:8082` (port configurable in `application.properties`)
+The application will start on `http://localhost:8080` (port configurable in `application.properties`)
 
-Access H2 Console (optional): `http://localhost:8082/h2-console`
+Access H2 Console (optional): `http://localhost:8080/h2-console`
 
 ## Project Structure
 
 ```
 stocktracker/
 ├── src/
-│   ├── main/
-│   │   ├── java/com/abhinav/stocktracker/
-│   │   │   ├── StocktrackerApplication.java      # Main entry point
-│   │   │   ├── controller/
-│   │   │   │   └── StockController.java          # REST endpoints
-│   │   │   ├── service/
-│   │   │   │   └── StockService.java             # Business logic & caching
-│   │   │   ├── client/
-│   │   │   │   └── StockClient.java              # Alpha Vantage API client
-│   │   │   ├── config/
-│   │   │   │   └── WebClientConfig.java          # WebClient bean configuration
-│   │   │   ├── dto/
-│   │   │   │   ├── StockResponse.java
-│   │   │   │   ├── StockOverviewResponse.java
-│   │   │   │   ├── StockHistoryResponse.java
-│   │   │   │   ├── DailyStockResponse.java
-│   │   │   │   ├── FavoriteStockRequest.java
-│   │   │   │   └── AlphaVantageResponse.java
-│   │   │   ├── entity/
-│   │   │   │   └── FavoriteStock.java            # JPA entity
-│   │   │   ├── repository/
-│   │   │   │   └── FavoriteStockRepository.java  # Data access layer
-│   │   │   └── exception/
-│   │   │       ├── GlobalExceptionHandler.java   # Exception handling
-│   │   │       └── FavoriteAlreadyExistsException.java
-│   │   └── resources/
-│   │       └── application.properties            # Application configuration
-│   └── test/
-│       └── java/...
+�?  ├── main/
+�?  �?  ├── java/com/abhinav/stocktracker/
+�?  �?  �?  ├── StocktrackerApplication.java      # Main entry point
+�?  �?  �?  ├── controller/
+�?  �?  �?  �?  └── StockController.java          # REST endpoints
+�?  �?  �?  ├── service/
+�?  �?  �?  �?  └── StockService.java             # Business logic & caching
+�?  �?  �?  ├── client/
+�?  �?  �?  �?  └── StockClient.java              # Alpha Vantage API client
+�?  �?  �?  ├── config/
+�?  �?  �?  �?  └── WebClientConfig.java          # WebClient bean configuration
+�?  �?  �?  ├── dto/
+�?  �?  �?  �?  ├── StockResponse.java
+�?  �?  �?  �?  ├── StockOverviewResponse.java
+�?  �?  �?  �?  ├── StockHistoryResponse.java
+�?  �?  �?  �?  ├── DailyStockResponse.java
+�?  �?  �?  �?  ├── FavoriteStockRequest.java
+�?  �?  �?  �?  └── AlphaVantageResponse.java
+�?  �?  �?  ├── entity/
+�?  �?  �?  �?  └── FavoriteStock.java            # JPA entity
+�?  �?  �?  ├── repository/
+�?  �?  �?  �?  └── FavoriteStockRepository.java  # Data access layer
+�?  �?  �?  └── exception/
+�?  �?  �?      ├── GlobalExceptionHandler.java   # Exception handling
+�?  �?  �?      └── FavoriteAlreadyExistsException.java
+�?  �?  └── resources/
+�?  �?      └── application.properties            # Application configuration
+�?  └── test/
+�?      └── java/...
 ├── pom.xml                                       # Maven dependencies
 ├── README.md                                     # This file
 └── mvnw / mvnw.cmd                               # Maven wrapper
@@ -244,7 +244,7 @@ All endpoints are prefixed with `/api/v1/stocks`
 
 **Example:**
 ```bash
-curl -X GET "http://localhost:8082/api/v1/stocks/GOOGL"
+curl -X GET "http://localhost:8080/api/v1/stocks/GOOGL"
 ```
 
 ---
@@ -285,7 +285,7 @@ curl -X GET "http://localhost:8082/api/v1/stocks/GOOGL"
 
 **Example:**
 ```bash
-curl -X GET "http://localhost:8082/api/v1/stocks/GOOGL/overview"
+curl -X GET "http://localhost:8080/api/v1/stocks/GOOGL/overview"
 ```
 
 ---
@@ -335,7 +335,7 @@ curl -X GET "http://localhost:8082/api/v1/stocks/GOOGL/overview"
 
 **Example:**
 ```bash
-curl -X GET "http://localhost:8082/api/v1/stocks/GOOGL/history?days=7"
+curl -X GET "http://localhost:8080/api/v1/stocks/GOOGL/history?days=7"
 ```
 
 ---
@@ -377,7 +377,7 @@ curl -X GET "http://localhost:8082/api/v1/stocks/GOOGL/history?days=7"
 
 **Example:**
 ```bash
-curl -X POST "http://localhost:8082/api/v1/stocks/favorites" \
+curl -X POST "http://localhost:8080/api/v1/stocks/favorites" \
   -H "Content-Type: application/json" \
   -d '{"symbol":"GOOGL"}'
 ```
@@ -427,7 +427,7 @@ curl -X POST "http://localhost:8082/api/v1/stocks/favorites" \
 
 **Example:**
 ```bash
-curl -X GET "http://localhost:8082/api/v1/stocks/favorites"
+curl -X GET "http://localhost:8080/api/v1/stocks/favorites"
 ```
 
 ---
@@ -477,7 +477,7 @@ public StockOverviewResponse getStockOverviewForSymbol(final String stockSymbol)
 ```
 
 **How it works:**
-- First call for a symbol: fetches from Alpha Vantage API → caches result
+- First call for a symbol: fetches from Alpha Vantage API �?caches result
 - Subsequent calls: returns cached value (instant response, no API call)
 - Cache is cleared when application restarts
 
@@ -525,7 +525,7 @@ spring.h2.console.enabled=true
 spring.h2.console.path=/h2-console
 
 # Server Port
-server.port=8082
+server.port=8080
 
 # Cache Configuration
 spring.cache.cache-names=stocks,stockOverviews
@@ -541,7 +541,7 @@ logging.level.org.springframework.cache=DEBUG
 | Property | Default | Description |
 |----------|---------|-------------|
 | `alpha.vantage.api.key` | `your_api_key` | Alpha Vantage API key (should be changed to your own) |
-| `server.port` | `8082` | Server port |
+| `server.port` | `8080` | Server port |
 | `spring.cache.type` | `simple` | Cache implementation (simple = in-memory) |
 | `spring.jpa.hibernate.ddl-auto` | `update` | Auto-update database schema |
 
@@ -560,15 +560,15 @@ logging.level.org.springframework.cache=DEBUG
 - Add to `application.properties`: `logging.level.com.abhinav.stocktracker.client=DEBUG`
 - Check logs for raw API response
 
-### 2. Port 8082 Already in Use
+### 2. Port 8080 Already in Use
 
 **Solution:**
 - Change port in `application.properties`: `server.port=8083`
-- Or kill process using port 8082
+- Or kill process using port 8080
 
 **On Windows (PowerShell):**
 ```powershell
-Get-Process -Id (Get-NetTCPConnection -LocalPort 8082).OwningProcess | Stop-Process
+Get-Process -Id (Get-NetTCPConnection -LocalPort 8080).OwningProcess | Stop-Process
 ```
 
 ### 3. "Favorite Already Exists" Error
@@ -591,9 +591,9 @@ Get-Process -Id (Get-NetTCPConnection -LocalPort 8082).OwningProcess | Stop-Proc
 ### 5. Application Won't Start
 
 **Check logs for:**
-- `Port 8082 already in use` → Change port
-- `Cannot resolve API key` → Update `application.properties`
-- `Compilation error` → Run `mvn clean compile`
+- `Port 8080 already in use` �?Change port
+- `Cannot resolve API key` �?Update `application.properties`
+- `Compilation error` �?Run `mvn clean compile`
 
 ## API Testing Examples
 
@@ -601,33 +601,33 @@ Get-Process -Id (Get-NetTCPConnection -LocalPort 8082).OwningProcess | Stop-Proc
 
 ```bash
 # Get stock price
-curl -X GET "http://localhost:8082/api/v1/stocks/GOOGL"
+curl -X GET "http://localhost:8080/api/v1/stocks/GOOGL"
 
 # Get stock overview
-curl -X GET "http://localhost:8082/api/v1/stocks/MSFT/overview"
+curl -X GET "http://localhost:8080/api/v1/stocks/MSFT/overview"
 
 # Get 7 days of history
-curl -X GET "http://localhost:8082/api/v1/stocks/AAPL/history?days=7"
+curl -X GET "http://localhost:8080/api/v1/stocks/AAPL/history?days=7"
 
 # Add to favorites
-curl -X POST "http://localhost:8082/api/v1/stocks/favorites" \
+curl -X POST "http://localhost:8080/api/v1/stocks/favorites" \
   -H "Content-Type: application/json" \
   -d '{"symbol":"GOOGL"}'
 
 # Get favorites with live prices
-curl -X GET "http://localhost:8082/api/v1/stocks/favorites"
+curl -X GET "http://localhost:8080/api/v1/stocks/favorites"
 ```
 
 ### Using Postman
 
 1. **GET Request - Stock Quote**
-   - URL: `http://localhost:8082/api/v1/stocks/GOOGL`
+   - URL: `http://localhost:8080/api/v1/stocks/GOOGL`
    - Method: GET
    - Headers: None
    - Body: None
 
 2. **POST Request - Add Favorite**
-   - URL: `http://localhost:8082/api/v1/stocks/favorites`
+   - URL: `http://localhost:8080/api/v1/stocks/favorites`
    - Method: POST
    - Headers: `Content-Type: application/json`
    - Body (raw JSON):
@@ -681,9 +681,28 @@ See `pom.xml` for full list. Key dependencies:
 
 ## License
 
-This project is open source and available under the MIT License.
+MIT License
+
+Copyright (c) 2024 abhinavdevaradesi
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 ## Contact & Support
 
 For issues or questions, please create an issue on the GitHub repository.
-
