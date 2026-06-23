@@ -1,9 +1,10 @@
-package com.abhinav.stocktracker.service;
+﻿package com.abhinav.stocktracker.service;
 
 import com.abhinav.stocktracker.client.StockClient;
 import com.abhinav.stocktracker.dto.*;
 import com.abhinav.stocktracker.entity.FavoriteStock;
 import com.abhinav.stocktracker.exception.FavoriteAlreadyExistsException;
+import com.abhinav.stocktracker.exception.RateLimitException;
 import com.abhinav.stocktracker.repository.FavoriteStockRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
@@ -32,12 +33,28 @@ public class StockService {
     public StockResponse getStockForSymbol(final String stockSymbol) {
         long startTime = System.currentTimeMillis();
         log.info("Fetching stock quote for symbol: {} (cache miss)", stockSymbol);
-        
+
         AlphaVantageResponse response = stockClient.getStockQuote(stockSymbol);
-        if (response == null || response.globalQuote() == null) {
-            // API did not return a valid quote (could be rate limit, invalid symbol, network issue)
+
+        if (response == null) {
             long duration = System.currentTimeMillis() - startTime;
-            log.warn("No quote available for symbol {}. Rate limit or API error. Duration: {}ms", stockSymbol, duration);
+            log.warn("No response for symbol {} (network/retry exhausted). Duration: {}ms", stockSymbol, duration);
+            return StockResponse.builder()
+                    .symbol(stockSymbol)
+                    .price("0.0")
+                    .lastUpdated(null)
+                    .build();
+        }
+
+        if (response.note() != null) {
+            long duration = System.currentTimeMillis() - startTime;
+            log.warn("API rate limit hit for symbol {}. Note: {}. Duration: {}ms", stockSymbol, response.note(), duration);
+            throw new RateLimitException("Alpha Vantage API rate limit exceeded for symbol: " + stockSymbol);
+        }
+
+        if (response.globalQuote() == null) {
+            long duration = System.currentTimeMillis() - startTime;
+            log.warn("No quote data for symbol {} (possibly invalid symbol). Duration: {}ms", stockSymbol, duration);
             return StockResponse.builder()
                     .symbol(stockSymbol)
                     .price("0.0")
@@ -63,6 +80,31 @@ public class StockService {
         return stockClient.getStockHistory(stockSymbol);
     }
 
+    public PagedResponse<DailyStockResponse> getHistoryPaged(String symbol, int page, int size) {
+        StockHistoryResponse response = stockClient.getStockHistory(symbol);
+
+        List<DailyStockResponse> allData = response.timeSeries().entrySet().stream()
+                .map(entry -> new DailyStockResponse(
+                        entry.getKey(),
+                        Double.parseDouble(entry.getValue().open()),
+                        Double.parseDouble(entry.getValue().close()),
+                        Double.parseDouble(entry.getValue().high()),
+                        Double.parseDouble(entry.getValue().low()),
+                        Long.parseLong(entry.getValue().volume())
+                ))
+                .collect(Collectors.toList());
+
+        int totalElements = allData.size();
+        int totalPages = (int) Math.ceil((double) totalElements / size);
+        int fromIndex = page * size;
+        int toIndex = Math.min(fromIndex + size, totalElements);
+        List<DailyStockResponse> pageContent = fromIndex >= totalElements
+                ? List.of()
+                : allData.subList(fromIndex, toIndex);
+
+        return new PagedResponse<>(pageContent, page, size, totalElements, totalPages);
+    }
+
     @Transactional
     public FavoriteStock addFavorite(final String stockSymbol) {
         if(favoriteStockRepository.existsByStockSymbol(stockSymbol)) {
@@ -76,7 +118,7 @@ public class StockService {
         return favoriteStockRepository.save(favoriteStock);
     }
 
-    
+
     @Transactional
     public boolean deleteFavorite(final String stockSymbol) {
         if (favoriteStockRepository.existsByStockSymbol(stockSymbol)) {

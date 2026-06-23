@@ -3,8 +3,8 @@ package com.abhinav.stocktracker.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public record AlphaVantageResponse (
-    @JsonProperty("Global Quote")
-    GlobalQuote globalQuote
+    @JsonProperty("Global Quote") GlobalQuote globalQuote,
+    @JsonProperty("Note") String note
 ) {
     public record GlobalQuote(
             @JsonProperty("01. symbol") String symbol,

@@ -1,4 +1,4 @@
-package com.abhinav.stocktracker.controller;
+﻿package com.abhinav.stocktracker.controller;
 
 import com.abhinav.stocktracker.client.StockClient;
 import com.abhinav.stocktracker.dto.*;
@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.abhinav.stocktracker.dto.Result;
+import com.abhinav.stocktracker.dto.PagedResponse;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
@@ -39,9 +40,9 @@ public class StockController {
         response.put("baseUrl", "/api/v1/stocks");
         
         Map<String, String> endpoints = new HashMap<>();
-        endpoints.put("Get Live Stock Price", "GET /api/v1/stocks/{symbol}   → e.g. /api/v1/stocks/AAPL");
+        endpoints.put("Get Live Stock Price", "GET /api/v1/stocks/{symbol}    -> e.g. /api/v1/stocks/AAPL");
         endpoints.put("Get Stock Overview", "GET /api/v1/stocks/{symbol}/overview");
-        endpoints.put("Get Price History", "GET /api/v1/stocks/{symbol}/history?days=30");
+        endpoints.put("Get Price History", "GET /api/v1/stocks/{symbol}/history?page=0&size=30");
         endpoints.put("Add Favorite", "POST /api/v1/stocks/favorites");
         endpoints.put("Delete Favorite", "DELETE /api/v1/stocks/favorites/{symbol}");
         endpoints.put("Get All Favorites", "GET /api/v1/stocks/favorites");
@@ -70,23 +71,11 @@ public class StockController {
     }
 
     @GetMapping("/{stockSymbol}/history")
-    public List<DailyStockResponse> getStockHistory(@PathVariable String stockSymbol, @RequestParam(defaultValue = "30") int days) {
-        StockHistoryResponse response = stockClient.getStockHistory(stockSymbol.toUpperCase());
-        return response.timeSeries().entrySet().stream()
-                .limit(days)
-                .map(entry -> {
-                    var date = entry.getKey();
-                    var daily = entry.getValue();
-                    return new DailyStockResponse(
-                            date,
-                            Double.parseDouble(daily.open()),
-                            Double.parseDouble(daily.close()),
-                            Double.parseDouble(daily.high()),
-                            Double.parseDouble(daily.low()),
-                            Long.parseLong(daily.volume())
-                    );
-                })
-                .collect(Collectors.toList());
+    public PagedResponse<DailyStockResponse> getStockHistory(
+            @PathVariable String stockSymbol,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "30") int size) {
+        return stockService.getHistoryPaged(stockSymbol.toUpperCase(), page, size);
     }
 
     @PostMapping("/favorites")

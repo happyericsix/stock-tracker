@@ -97,7 +97,7 @@ public class StockClient {
         }
         return null;
     }
-    private AlphaVantageResponse fallbackgetStockOverview(Throwable t, String symbol) {
+    private StockOverviewResponse fallbackgetStockOverview(Throwable t, String symbol) {
         log.warn("Circuit breaker triggered for symbol: {}", symbol);
         if (t instanceof CallNotPermittedException) {
             log.warn("熔断器已打开，直接降级");
@@ -106,7 +106,7 @@ public class StockClient {
         }
         return null;
     }
-    private AlphaVantageResponse fallbackgetStockHistory(Throwable t, String symbol) {
+    private StockHistoryResponse fallbackgetStockHistory(Throwable t, String symbol) {
         log.warn("Circuit breaker triggered for symbol: {}", symbol);
         if (t instanceof CallNotPermittedException) {
             log.warn("熔断器已打开，直接降级");
