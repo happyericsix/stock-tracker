@@ -1,16 +1,19 @@
 package com.abhinav.stocktracker.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Data
-@AllArgsConstructor
-@NoArgsConstructor
-@Builder
 public class FavoriteStockRequest {
-
     private String symbol;
 
+    public FavoriteStockRequest() {}
+
+    public FavoriteStockRequest(String symbol) {
+        this.symbol = symbol;
+    }
+
+    public String getSymbol() {
+        return symbol;
+    }
+
+    public void setSymbol(String symbol) {
+        this.symbol = symbol;
+    }
 }

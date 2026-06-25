@@ -27,7 +27,8 @@ class StockServiceCacheTest {
                                 "AAPL",
                                 "200.00",
                                 "2025-06-14"
-                        )
+                        ),
+                        null
                 );
 
         when(stockClient.getStockQuote("AAPL"))
