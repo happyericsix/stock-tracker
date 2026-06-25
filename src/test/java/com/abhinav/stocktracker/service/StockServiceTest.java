@@ -40,7 +40,8 @@ class StockServiceTest {
                                 "AAPL",
                                 "200.00",
                                 "2025-06-14"
-                        )
+                        ),
+                        null
                 );
 
         when(stockClient.getStockQuote("AAPL"))
@@ -80,7 +81,7 @@ class StockServiceTest {
     void shouldReturnDefaultResponseWhenGlobalQuoteIsNull() {
 
         AlphaVantageResponse response =
-                new AlphaVantageResponse(null);
+                new AlphaVantageResponse(null, null);
 
         when(stockClient.getStockQuote("AAPL"))
                 .thenReturn(response);
@@ -165,7 +166,8 @@ class StockServiceTest {
                                 "AAPL",
                                 "200.00",
                                 "2025-06-14"
-                        )
+                        ),
+                        null
                 );
 
         when(stockClient.getStockQuote("AAPL"))

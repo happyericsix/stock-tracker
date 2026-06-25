@@ -21,5 +21,8 @@ public class FavoriteStock {
     @Column(nullable = false, unique = true)
     private String stockSymbol;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
 
 }

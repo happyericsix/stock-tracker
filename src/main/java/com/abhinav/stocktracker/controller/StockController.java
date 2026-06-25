@@ -1,4 +1,4 @@
-﻿package com.abhinav.stocktracker.controller;
+package com.abhinav.stocktracker.controller;
 
 import com.abhinav.stocktracker.client.StockClient;
 import com.abhinav.stocktracker.dto.*;
