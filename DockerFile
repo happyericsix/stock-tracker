@@ -1,9 +1,14 @@
 # Build stage
 FROM maven:3.9.9-eclipse-temurin-21 AS build
 WORKDIR /app
-COPY . .
-RUN chmod +x ./mvnw
-RUN ./mvnw clean package -DskipTests
+
+# 第一步：只复制 pom.xml，下载依赖（依赖变化少，可以缓存）
+COPY pom.xml ./
+RUN mvn dependency:go-offline -B
+
+# 第二步：复制源码并打包（源码变了才重跑）
+COPY src ./src
+RUN mvn clean package -DskipTests -o   # -o 表示离线模式
 
 # Run stage
 FROM eclipse-temurin:21-jre-alpine

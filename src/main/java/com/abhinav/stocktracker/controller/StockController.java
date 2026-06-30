@@ -9,6 +9,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.web.bind.annotation.PostMapping;
+import java.util.Map;
+import org.springframework.web.bind.annotation.PostMapping;
+import java.util.Map;
 
 import com.abhinav.stocktracker.dto.Result;
 import com.abhinav.stocktracker.dto.PagedResponse;
@@ -31,7 +35,6 @@ public class StockController {
         this.stockClient = stockClient;
     }
 
-    @GetMapping("/")
     public ResponseEntity<Map<String, Object>> home() {
         Map<String, Object> response = new HashMap<>();
         response.put("message", "Welcome to Stock Tracker API");
@@ -92,7 +95,8 @@ public class StockController {
         log.info("GET /favorites returned {} stocks in {}ms", favorites.size(), duration);
         return favorites;
     }
-        @DeleteMapping("/favorites/{symbol}")
+
+    @DeleteMapping("/favorites/{symbol}")
     public Result<String> deleteFavoriteStocks(@PathVariable String symbol) {
         boolean deleted = stockService.deleteFavorite(symbol.toUpperCase());
         if (deleted) {
