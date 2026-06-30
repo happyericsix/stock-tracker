@@ -1,6 +1,7 @@
 package com.abhinav.stocktracker.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.io.Serializable;
 
 public record StockOverviewResponse(
         @JsonProperty("Symbol") String symbol,
@@ -11,4 +12,6 @@ public record StockOverviewResponse(
         @JsonProperty("MarketCapitalization") String marketCapitalization,
         @JsonProperty("PERatio") String peRatio,
         @JsonProperty("DividendYield") String dividendYield
-) {}
+) implements Serializable {
+    private static final long serialVersionUID = 1L;
+}

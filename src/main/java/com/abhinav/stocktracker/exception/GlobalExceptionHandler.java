@@ -1,7 +1,6 @@
 package com.abhinav.stocktracker.exception;
 
 import com.abhinav.stocktracker.dto.Result;
-import com.abhinav.stocktracker.exception.RateLimitException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
