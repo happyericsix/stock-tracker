@@ -1,0 +1,154 @@
+﻿"""
+FastAPI 入口 —— 数据微服务
+为 Java 后端提供 RESTful 接口，替代原有的 Choice API 数据源。
+"""
+
+import logging
+from datetime import date, timedelta
+
+from fastapi import FastAPI, Query, Request
+from fastapi.middleware.cors import CORSMiddleware
+
+from akshare_client import get_quote, get_history, get_overview
+from models import StockQuoteResponse, GlobalQuote, StockHistoryResponse, MetaData, DailyPrice, StockOverviewResponse
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+app = FastAPI(
+    title="Stock Data Service (akshare)",
+    description="为 stock-tracker Java 后端提供实时行情、K 线历史、基本面数据",
+    version="0.1.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# ==================== 健康检查 ====================
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
+# ==================== 实时行情 ====================
+
+@app.get("/api/v1/quote/{symbol}", response_model=StockQuoteResponse)
+def stock_quote(symbol: str):
+    """获取股票实时行情，返回格式与 Java StockQuoteResponse 兼容。"""
+    data = get_quote(symbol)
+    if data is None:
+        return StockQuoteResponse(
+            globalQuote=GlobalQuote(symbol=symbol, price="0.0", lastTradingDay=str(date.today())),
+            note="No data"
+        )
+
+    price = data.get("最新价", "0.0")
+    today_str = str(date.today())
+
+    return StockQuoteResponse(
+        globalQuote=GlobalQuote(symbol=symbol, price=price, lastTradingDay=today_str),
+    )
+
+
+# ==================== K 线历史 ====================
+
+@app.get("/api/v1/history/{symbol}", response_model=StockHistoryResponse)
+def stock_history(
+    symbol: str,
+    start_date: str = Query(default="", description="起始日期 yyyyMMdd"),
+    end_date: str = Query(default="", description="结束日期 yyyyMMdd"),
+):
+    """获取股票日线历史数据，返回格式与 Java StockHistoryResponse 兼容。"""
+    records = get_history(symbol, start_date=start_date, end_date=end_date)
+    if records is None:
+        return StockHistoryResponse(
+            metaData=MetaData(symbol=symbol),
+            timeSeries={},
+        )
+
+    time_series = {}
+    for r in records:
+        day_key = r.get("date", "")
+        time_series[day_key] = DailyPrice(
+            open=r.get("open", "0"),
+            high=r.get("high", "0"),
+            low=r.get("low", "0"),
+            close=r.get("close", "0"),
+            volume=r.get("volume", "0"),
+        )
+
+    return StockHistoryResponse(
+        metaData=MetaData(symbol=symbol),
+        timeSeries=time_series,
+    )
+
+ 
+# ==================== 基本面概况 ====================
+
+@app.get("/api/v1/overview/{symbol}", response_model=StockOverviewResponse)
+def stock_overview(symbol: str):
+    """获取股票基本面概况，返回格式与 Java StockOverviewResponse 兼容。"""
+    data = get_overview(symbol)
+    if data is None:
+        return StockOverviewResponse(symbol=symbol, name=symbol)
+
+    return StockOverviewResponse(
+        symbol=symbol,
+        name=data.get("名称", symbol),
+        marketCapitalization=data.get("总市值", "N/A"),
+        peRatio=data.get("市盈率-动态", "N/A"),
+        description="",
+        sector="",
+        industry="",
+        dividendYield="N/A",
+    )
+
+# ==================== QQ Bot 接口 ====================
+
+import requests
+NAPCAT_API = "http://localhost:8081"
+
+def send_qq(user_id, text):
+    try:
+        requests.post(f"{NAPCAT_API}/", json={
+            "user_id": user_id,
+            "message": text
+        }, timeout=5)
+    except Exception as e:
+        print(f"QQ发送失败: {e}")
+@app.post("/qq_msg")
+async def qq_webhook(req: Request):
+    data = await req.json()
+    user_id = data.get("user_id")
+    message = data.get("message", "").strip()
+    print(f"QQ消息 [{user_id}]: {message}")
+
+    if not message:
+        return {"status": "ok"}
+
+    for kw in ["行情", "股价", "价格"]:
+        if kw in message:
+            symbol = message.replace(kw, "").strip()
+            data = get_quote(symbol)
+            if data:
+                reply = f'📊 {data.get("名称", symbol)}({symbol})\n最新价: {data.get("最新价", "N/A")}\n涨跌幅: {data.get("涨跌幅", "N/A")}%'
+            else:
+                reply = f"查询 {symbol} 失败"
+            send_qq(user_id, reply)
+            return {"status": "ok"}
+
+    if message in ["/help", "帮助", "菜单"]:
+        send_qq(user_id, "📈 命令：\n600519 行情\n000001 股价")
+        return {"status": "ok"}
+
+    send_qq(user_id, f"收到: {message}")
+    return {"status": "ok"}
