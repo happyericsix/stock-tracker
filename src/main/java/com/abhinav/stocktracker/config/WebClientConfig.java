@@ -1,20 +1,17 @@
-package com.abhinav.stocktracker.config;
+﻿package com.abhinav.stocktracker.config;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.client.RestClient;
+import org.springframework.web.reactive.function.client.WebClient;
 
+/**
+ * WebClient 配置，为 AkshareStockClient 提供基础 Builder。
+ */
 @Configuration
 public class WebClientConfig {
 
     @Bean
-    public RestClient tencentRestClient(@Value("${tencent.stock.base.url}") String baseUrl) {
-        return RestClient.builder().baseUrl(baseUrl).build();
-    }
-
-    @Bean
-    public RestClient tencentHistoryRestClient(@Value("${tencent.stock.history.base.url}") String baseUrl) {
-        return RestClient.builder().baseUrl(baseUrl).build();
+    public WebClient.Builder akshareWebClientBuilder() {
+        return WebClient.builder();
     }
 }

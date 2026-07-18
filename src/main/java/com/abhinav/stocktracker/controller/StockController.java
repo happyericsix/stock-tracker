@@ -1,58 +1,31 @@
 package com.abhinav.stocktracker.controller;
 
-import com.abhinav.stocktracker.client.StockClient;
-import com.abhinav.stocktracker.dto.*;
+import com.abhinav.stocktracker.dto.DailyStockResponse;
+import com.abhinav.stocktracker.dto.FavoriteStockRequest;
+import com.abhinav.stocktracker.dto.PagedResponse;
+import com.abhinav.stocktracker.dto.Result;
+import com.abhinav.stocktracker.dto.StockOverviewResponse;
+import com.abhinav.stocktracker.dto.StockResponse;
 import com.abhinav.stocktracker.entity.FavoriteStock;
 import com.abhinav.stocktracker.service.StockService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.web.bind.annotation.PostMapping;
-import java.util.Map;
-import org.springframework.web.bind.annotation.PostMapping;
-import java.util.Map;
 
-import com.abhinav.stocktracker.dto.Result;
-import com.abhinav.stocktracker.dto.PagedResponse;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/stocks")
 public class StockController {
 
     private final StockService stockService;
-    private final StockClient stockClient;
     private static final Logger log = LoggerFactory.getLogger(StockController.class);
 
     @Autowired
-    public StockController(StockService stockService, StockClient stockClient) {
+    public StockController(StockService stockService) {
         this.stockService = stockService;
-        this.stockClient = stockClient;
-    }
-
-    public ResponseEntity<Map<String, Object>> home() {
-        Map<String, Object> response = new HashMap<>();
-        response.put("message", "Welcome to Stock Tracker API");
-        response.put("status", "Running");
-        response.put("version", "2.0");
-        response.put("baseUrl", "/api/v1/stocks");
-        
-        Map<String, String> endpoints = new HashMap<>();
-        endpoints.put("Get Live Stock Price", "GET /api/v1/stocks/{symbol}    -> e.g. /api/v1/stocks/AAPL");
-        endpoints.put("Get Stock Overview", "GET /api/v1/stocks/{symbol}/overview");
-        endpoints.put("Get Price History", "GET /api/v1/stocks/{symbol}/history?page=0&size=30");
-        endpoints.put("Add Favorite", "POST /api/v1/stocks/favorites");
-        endpoints.put("Delete Favorite", "DELETE /api/v1/stocks/favorites/{symbol}");
-        endpoints.put("Get All Favorites", "GET /api/v1/stocks/favorites");
-        
-        response.put("endpoints", endpoints);
-        
-        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{stockSymbol}")
@@ -84,7 +57,7 @@ public class StockController {
     @PostMapping("/favorites")
     public ResponseEntity<FavoriteStock> saveFavoriteStock(@RequestBody FavoriteStockRequest request) {
         final FavoriteStock saved = stockService.addFavorite(request.getSymbol());
-        return  ResponseEntity.ok().body(saved);
+        return ResponseEntity.ok().body(saved);
     }
 
     @GetMapping("/favorites")
