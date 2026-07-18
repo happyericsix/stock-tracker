@@ -1,0 +1,64 @@
+﻿"""
+Pydantic models matching Java DTO exact JSON structure.
+Java side uses Jackson @JsonProperty, so field names must match exactly.
+"""
+
+from pydantic import BaseModel, Field
+from typing import Optional
+
+
+class GlobalQuote(BaseModel):
+    """Matches StockQuoteResponse.GlobalQuote in Java"""
+    symbol: str = Field(default="", alias="01. symbol")
+    price: str = Field(default="0.0", alias="05. price")
+    lastTradingDay: str = Field(default="", alias="07. latest trading day")
+
+    model_config = {"populate_by_name": True}
+
+
+class StockQuoteResponse(BaseModel):
+    """Matches Java StockQuoteResponse record"""
+    globalQuote: Optional[GlobalQuote] = Field(default=None, alias="Global Quote")
+    note: Optional[str] = Field(default=None, alias="Note")
+
+    model_config = {"populate_by_name": True}
+
+
+class DailyPrice(BaseModel):
+    """Matches StockHistoryResponse.DailyPrice in Java"""
+    open: str = Field(default="0", alias="1. open")
+    high: str = Field(default="0", alias="2. high")
+    low: str = Field(default="0", alias="3. low")
+    close: str = Field(default="0", alias="4. close")
+    volume: str = Field(default="0", alias="5. volume")
+
+    model_config = {"populate_by_name": True}
+
+
+class MetaData(BaseModel):
+    """Matches StockHistoryResponse.MetaData in Java"""
+    symbol: str = Field(default="", alias="2. Symbol")
+
+    model_config = {"populate_by_name": True}
+
+
+class StockHistoryResponse(BaseModel):
+    """Matches Java StockHistoryResponse record"""
+    metaData: Optional[MetaData] = Field(default=None, alias="Meta Data")
+    timeSeries: dict[str, DailyPrice] = Field(default_factory=dict, alias="Time Series (Daily)")
+
+    model_config = {"populate_by_name": True}
+
+
+class StockOverviewResponse(BaseModel):
+    """Matches Java StockOverviewResponse record"""
+    symbol: str = Field(default="", alias="Symbol")
+    name: str = Field(default="", alias="Name")
+    description: str = Field(default="", alias="Description")
+    sector: str = Field(default="", alias="Sector")
+    industry: str = Field(default="", alias="Industry")
+    marketCapitalization: str = Field(default="", alias="MarketCapitalization")
+    peRatio: str = Field(default="", alias="PERatio")
+    dividendYield: str = Field(default="", alias="DividendYield")
+
+    model_config = {"populate_by_name": True}
