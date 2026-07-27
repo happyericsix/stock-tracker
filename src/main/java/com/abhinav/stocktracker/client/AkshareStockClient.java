@@ -1,4 +1,4 @@
-﻿package com.abhinav.stocktracker.client;
+package com.abhinav.stocktracker.client;
 
 import com.abhinav.stocktracker.dto.StockHistoryResponse;
 import com.abhinav.stocktracker.dto.StockOverviewResponse;

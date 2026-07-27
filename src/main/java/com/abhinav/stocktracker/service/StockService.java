@@ -1,10 +1,12 @@
-﻿package com.abhinav.stocktracker.service;
+package com.abhinav.stocktracker.service;
 
 import com.abhinav.stocktracker.client.AkshareStockClient;
 import com.abhinav.stocktracker.dto.*;
 import com.abhinav.stocktracker.entity.FavoriteStock;
+import com.abhinav.stocktracker.entity.User;
 import com.abhinav.stocktracker.exception.FavoriteAlreadyExistsException;
 import com.abhinav.stocktracker.repository.FavoriteStockRepository;
+import com.abhinav.stocktracker.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,12 +22,14 @@ public class StockService {
 
     private final AkshareStockClient akshareStockClient;
     private final FavoriteStockRepository favoriteStockRepository;
+    private final UserRepository userRepository;
     private static final Logger log = LoggerFactory.getLogger(StockService.class);
 
     @Autowired
-    public StockService(AkshareStockClient akshareStockClient, FavoriteStockRepository favoriteStockRepository) {
+    public StockService(AkshareStockClient akshareStockClient, FavoriteStockRepository favoriteStockRepository, UserRepository userRepository) {
         this.akshareStockClient = akshareStockClient;
         this.favoriteStockRepository = favoriteStockRepository;
+        this.userRepository = userRepository;
     }
 
     @Cacheable(value = "stocks", key = "#stockSymbol")
@@ -89,29 +93,47 @@ public class StockService {
     }
 
     @Transactional
-    public FavoriteStock addFavorite(final String stockSymbol) {
-        if (favoriteStockRepository.existsByStockSymbol(stockSymbol)) {
+    public FavoriteStock addFavorite(final String stockSymbol, final String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+
+        if (favoriteStockRepository.existsByStockSymbolAndUserId(stockSymbol, user.getId())) {
             throw new FavoriteAlreadyExistsException(stockSymbol);
         }
+
         FavoriteStock favoriteStock = FavoriteStock.builder()
                 .stockSymbol(stockSymbol)
+                .user(user)
                 .build();
         return favoriteStockRepository.save(favoriteStock);
     }
 
     @Transactional
-    public boolean deleteFavorite(final String stockSymbol) {
-        if (favoriteStockRepository.existsByStockSymbol(stockSymbol)) {
-            favoriteStockRepository.deleteByStockSymbol(stockSymbol);
-            log.info("Deleted favorite: {}", stockSymbol);
+    public boolean deleteFavorite(final String stockSymbol, final String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+
+        if (favoriteStockRepository.existsByStockSymbolAndUserId(stockSymbol, user.getId())) {
+            favoriteStockRepository.deleteByStockSymbolAndUserId(stockSymbol, user.getId());
+            log.info("Deleted favorite: {} for user: {}", stockSymbol, username);
             return true;
         }
-        log.warn("Favorite not found: {}", stockSymbol);
+        log.warn("Favorite not found: {} for user: {}", stockSymbol, username);
         return false;
     }
 
     public List<StockResponse> getFavoritesWithLivePrices() {
-        List<FavoriteStock> favoriteStocks = favoriteStockRepository.findAll();
+        List<FavoriteStock> allFavorites = favoriteStockRepository.findAll();
+        return allFavorites.stream()
+                .map(fav -> getStockForSymbol(fav.getStockSymbol()))
+                .collect(Collectors.toList());
+    }
+
+    public List<StockResponse> getFavoritesWithLivePrices(final String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+
+        List<FavoriteStock> favoriteStocks = favoriteStockRepository.findByUserId(user.getId());
         return favoriteStocks.stream()
                 .map(fav -> getStockForSymbol(fav.getStockSymbol()))
                 .collect(Collectors.toList());

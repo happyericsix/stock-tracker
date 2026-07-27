@@ -32,16 +32,14 @@ public class AuthService {
 
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByUsername(request.getUsername())) {
-            throw new IllegalArgumentException("Username already exists");
-        }
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new IllegalArgumentException("Email already exists");
+            throw new IllegalArgumentException("用户名已存在");
         }
 
         User user = User.builder()
                 .username(request.getUsername())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .email(request.getEmail())
+                .email(request.getEmail() != null ? request.getEmail() : request.getUsername() + "@qq.com")
+                .qqNumber(request.getUsername())
                 .role(Role.USER)
                 .build();
 
@@ -52,21 +50,19 @@ public class AuthService {
 
         String token = tokenService.generateToken(authentication);
 
-        return new AuthResponse(token, user.getUsername(), user.getEmail(), "Registration successful");
+        return new AuthResponse(token, user.getUsername(), user.getEmail(), "注册成功");
     }
 
     public AuthResponse login(LoginRequest request) {
-        // 使用 AuthenticationManager 验证用户名密码
-        // 签发 JWT Token
-        // 返回 Token + 过期时间
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword()));
 
         String token = tokenService.generateToken(authentication);
 
         User user = userRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
 
-        return new AuthResponse(token, user.getUsername(), user.getEmail(), "Login successful");
+        return new AuthResponse(token, user.getUsername(), user.getEmail(), "登录成功");
     }
+
 }

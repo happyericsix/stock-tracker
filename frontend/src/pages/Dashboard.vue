@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getStock, getFavorites, addFavorite, deleteFavorite } from '../api/stock.js'
@@ -29,24 +29,24 @@ const loadFavorites = async () => {
   try {
     const res = await getFavorites()
     favorites.value = res.data
-  } catch (e) { /* ignore */ }
+  } catch (e) { }
 }
 
 const add = async (sym) => {
   try {
     await addFavorite(sym)
     await loadFavorites()
-  } catch (e) { /* ignore */ }
+  } catch (e) { }
 }
 
 const remove = async (sym) => {
   try {
     await deleteFavorite(sym)
     await loadFavorites()
-  } catch (e) { /* ignore */ }
+  } catch (e) { }
 }
 
-const goDetail = (sym) => router.push(`/stock/${sym}`)
+const goDetail = (sym) => router.push('/stock/' + sym)
 
 const logout = () => {
   localStorage.removeItem('token')
@@ -100,6 +100,7 @@ header { background: #1a1a2e; color: white; padding: 16px 24px; display: flex; j
 header h1 { margin: 0; font-size: 20px; }
 .logout-btn { background: transparent; border: 1px solid white; color: white; padding: 6px 16px; border-radius: 4px; cursor: pointer; }
 main { max-width: 640px; margin: 0 auto; padding: 24px 16px; }
+
 .search-section { display: flex; gap: 8px; margin-bottom: 20px; }
 .search-section input { flex: 1; padding: 10px 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px; }
 .search-section button { padding: 10px 20px; background: #1677ff; color: white; border: none; border-radius: 4px; cursor: pointer; }

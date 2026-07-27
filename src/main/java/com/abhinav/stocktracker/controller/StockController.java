@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -55,23 +56,27 @@ public class StockController {
     }
 
     @PostMapping("/favorites")
-    public ResponseEntity<FavoriteStock> saveFavoriteStock(@RequestBody FavoriteStockRequest request) {
-        final FavoriteStock saved = stockService.addFavorite(request.getSymbol());
+    public ResponseEntity<FavoriteStock> saveFavoriteStock(
+            @RequestBody FavoriteStockRequest request,
+            Authentication authentication) {
+        final FavoriteStock saved = stockService.addFavorite(request.getSymbol(), authentication.getName());
         return ResponseEntity.ok().body(saved);
     }
 
     @GetMapping("/favorites")
-    public List<StockResponse> getFavoriteStocks() {
+    public List<StockResponse> getFavoriteStocks(Authentication authentication) {
         long startTime = System.currentTimeMillis();
-        List<StockResponse> favorites = stockService.getFavoritesWithLivePrices();
+        List<StockResponse> favorites = stockService.getFavoritesWithLivePrices(authentication.getName());
         long duration = System.currentTimeMillis() - startTime;
         log.info("GET /favorites returned {} stocks in {}ms", favorites.size(), duration);
         return favorites;
     }
 
     @DeleteMapping("/favorites/{symbol}")
-    public Result<String> deleteFavoriteStocks(@PathVariable String symbol) {
-        boolean deleted = stockService.deleteFavorite(symbol.toUpperCase());
+    public Result<String> deleteFavoriteStocks(
+            @PathVariable String symbol,
+            Authentication authentication) {
+        boolean deleted = stockService.deleteFavorite(symbol.toUpperCase(), authentication.getName());
         if (deleted) {
             return Result.success("Favorite deleted successfully", symbol.toUpperCase());
         } else {

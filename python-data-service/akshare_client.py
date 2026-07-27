@@ -21,6 +21,8 @@ def normalize_symbol(symbol: str) -> str:
         return f"sh{s}"
     elif s.startswith("0") or s.startswith("3") or s.startswith("2"):
         return f"sz{s}"
+    elif s.startswith("8") or s.startswith("4") or s.startswith("92"):
+        return f"bj{s}"
     return s
 
 
@@ -95,3 +97,4 @@ def get_history(symbol: str, start_date: str = "", end_date: str = "") -> Option
 def get_overview(symbol: str) -> Optional[dict]:
     """获取基本面概况（复用腾讯行情数据）。"""
     return get_quote(symbol)
+

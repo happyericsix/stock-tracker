@@ -1,7 +1,7 @@
-﻿<script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { login, register } from '../api/auth.js'
+<script setup>
+import { ref } from "vue"
+import { useRouter } from "vue-router"
+import { login, register } from "../api/auth.js"
 
 const router = useRouter()
 const isLogin = ref(true)
@@ -30,10 +30,10 @@ const submit = async () => {
 <template>
   <div class="login-container">
     <div class="login-card">
-      <h2>{{ isLogin ? '登录' : '注册' }}</h2>
+      <h2>{{ isLogin ? 'QQ登录' : 'QQ注册' }}</h2>
       <form @submit.prevent="submit">
-        <input v-model="form.username" placeholder="用户名" required />
-        <input v-if="!isLogin" v-model="form.email" type="email" placeholder="邮箱" required />
+        <input v-model="form.username" placeholder="QQ号" required />
+        <input v-if="!isLogin" v-model="form.email" placeholder="邮箱（选填）" />
         <input v-model="form.password" type="password" placeholder="密码" required />
         <p v-if="error" class="error">{{ error }}</p>
         <button type="submit">{{ isLogin ? '登录' : '注册' }}</button>

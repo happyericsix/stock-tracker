@@ -1,4 +1,4 @@
-﻿package com.abhinav.stocktracker.dto;
+package com.abhinav.stocktracker.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 

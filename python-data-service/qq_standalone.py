@@ -1,4 +1,6 @@
-﻿import asyncio, json, logging, threading, requests
+import asyncio, json, logging, threading, requests, subprocess, time
+from collections import defaultdict
+from datetime import datetime
 from aiocqhttp import CQHttp
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
@@ -7,12 +9,97 @@ logger = logging.getLogger(__name__)
 
 YOUR_WEBHOOK = "http://localhost:8000/qq_msg"
 bot = CQHttp()
-send_queue = []
+send_queues = defaultdict(list)
+
+MYSQL_PATH = "E:\\MySQL\\MySQL Server 8.0\\bin\\mysql.exe"
+MYSQL_ARGS = ["-u", "root", "-p123456", "stockdb", "--batch", "--skip-column-names"]
+
+
+# 调腾讯API直接拿完整数据（名称、现价、涨跌幅、最高、最低）
+def get_stock_data(symbol):
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        code = symbol.strip().upper().replace('SH','').replace('SZ','').replace('HK','').replace('US','')
+        if code.startswith('6'): p = 'sh'
+        elif code.startswith('0') or code.startswith('3') or code.startswith('2'): p = 'sz'
+        elif code.startswith('8') or code.startswith('4') or code.startswith('92'): p = 'bj'
+        else: p = ''
+        url = f'http://qt.gtimg.cn/q={p}{code}'
+        resp = requests.get(url, headers=headers, timeout=5)
+        resp.encoding = 'gbk'
+        parts = resp.text.split('~')
+        if len(parts) < 40: return None
+        return {
+            'name': parts[1],
+            'price': parts[3],
+            '涨跌幅': parts[32],
+            '最高': parts[33],
+            '最低': parts[34],
+        }
+    except Exception as e:
+        logger.error(f"查价失败 {symbol}: {e}")
+        return None
+
+
+def get_qq_users():
+    try:
+        cmd = [MYSQL_PATH] + MYSQL_ARGS + ["-e", "SELECT u.id, u.qq_number, GROUP_CONCAT(fs.stock_symbol) FROM users u LEFT JOIN favorite_stocks fs ON u.id = fs.user_id WHERE u.qq_number IS NOT NULL AND u.qq_number != '' GROUP BY u.id, u.qq_number"]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        users = []
+        for line in result.stdout.strip().split("\n"):
+            if line.strip():
+                parts = line.split("\t")
+                favs = parts[2].split(",") if len(parts) > 2 and parts[2] else []
+                users.append({"qq_number": parts[1], "favorites": favs})
+        return users
+    except Exception as e:
+        logger.error(f"查询数据库失败: {e}")
+        return []
+
+
+def build_report(favorites):
+    msg = "📈 早安，今日自选股速报：\n\n"
+    for sym in favorites:
+        data = get_stock_data(sym)
+        if data:
+            msg += f"【{data['name']}({sym})】\n"
+            msg += f"  现价: ¥{data['price']}    涨跌: {data['涨跌幅']}%\n"
+            msg += f"  最高: ¥{data['最高']}    最低: ¥{data['最低']}\n"
+        else:
+            msg += f"【{sym}】查询失败\n"
+        msg += '\n'
+    msg += "\n💡 LLM 分析即将上线……"
+    return msg
+
+
+def daily_push_loop():
+    while True:
+        now = datetime.now()
+        if now.hour == 8 and now.minute == 30 and now.second < 5:
+            logger.info("开始执行每日推送...")
+            users = get_qq_users()
+            logger.info(f"找到 {len(users)} 个绑定了QQ的用户")
+            for u in users:
+                if not u["favorites"]:
+                    continue
+                try:
+                    msg = build_report(u["favorites"])
+                    qq = int(u["qq_number"])
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    loop.run_until_complete(bot.send_private_msg(user_id=qq, message=msg))
+                    loop.close()
+                    logger.info(f"已推送 {qq}")
+                except Exception as e:
+                    logger.error(f"推送 {u['qq_number']} 失败: {e}")
+            time.sleep(60)
+        time.sleep(1)
+
 
 class SendHandler(BaseHTTPRequestHandler):
     def do_POST(self):
-        data = json.loads(self.rfile.read(int(self.headers.get('Content-Length', 0))))
-        send_queue.append(data)
+        data = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))))
+        send_queues[data["user_id"]].append(data)
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b'ok')
@@ -24,6 +111,9 @@ async def init():
     t.start()
     logger.info("发送接口 http://0.0.0.0:8081")
     logger.info("等待 NapCat 连接...")
+    t2 = threading.Thread(target=daily_push_loop, daemon=True)
+    t2.start()
+    logger.info("每日推送线程已启动")
 
 @bot.on_message()
 async def handle_msg(event):
@@ -31,15 +121,24 @@ async def handle_msg(event):
     raw = event.message
     text = " ".join(s["data"]["text"] for s in raw if s.get("type") == "text") if isinstance(raw, list) else str(raw).strip()
     logger.info(f"收到 [{user_id}]: {text}")
+    if text in ["测试日报", "推送测试", "日报测试"]:
+        logger.info("手动触发每日推送...")
+        users = get_qq_users()
+        for u in users:
+            if not u["favorites"]: continue
+            msg = build_report(u["favorites"])
+            await bot.send_private_msg(user_id=int(u["qq_number"]), message=msg)
+        await bot.send_private_msg(user_id=user_id, message="✅ 日报推送完成")
+        return
     try:
-        requests.post(YOUR_WEBHOOK, json={"user_id": user_id, "message": text}, timeout=3)
+        await asyncio.to_thread(requests.post, YOUR_WEBHOOK, json={"user_id": user_id, "message": text}, timeout=3)
     except Exception as e:
         logger.error(f"转发失败: {e}")
-    # 处理发送队列
-    while send_queue:
-        item = send_queue.pop(0)
+    my_queue = send_queues.get(user_id, [])
+    while my_queue:
+        item = my_queue.pop(0)
         try:
-            await bot.send_private_msg(user_id=item['user_id'], message=item['message'])
+            await bot.send_private_msg(user_id=item["user_id"], message=item["message"])
             logger.info(f"已发送")
         except Exception as e:
             logger.error(f"发送失败: {e}")

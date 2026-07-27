@@ -4,6 +4,7 @@ FastAPI 入口 —— 数据微服务
 """
 
 import logging
+import asyncio
 from datetime import date, timedelta
 
 from fastapi import FastAPI, Query, Request
@@ -138,17 +139,17 @@ async def qq_webhook(req: Request):
     for kw in ["行情", "股价", "价格"]:
         if kw in message:
             symbol = message.replace(kw, "").strip()
-            data = get_quote(symbol)
+            data = await asyncio.to_thread(get_quote, symbol)
             if data:
                 reply = f'📊 {data.get("名称", symbol)}({symbol})\n最新价: {data.get("最新价", "N/A")}\n涨跌幅: {data.get("涨跌幅", "N/A")}%'
             else:
                 reply = f"查询 {symbol} 失败"
-            send_qq(user_id, reply)
+            await asyncio.to_thread(send_qq, user_id, reply)
             return {"status": "ok"}
 
     if message in ["/help", "帮助", "菜单"]:
-        send_qq(user_id, "📈 命令：\n600519 行情\n000001 股价")
+        await asyncio.to_thread(send_qq, user_id, "📈 命令：\n600519 行情\n000001 股价")
         return {"status": "ok"}
 
-    send_qq(user_id, f"收到: {message}")
+    await asyncio.to_thread(send_qq, user_id, f"收到: {message}")
     return {"status": "ok"}

@@ -1,4 +1,4 @@
-﻿package com.abhinav.stocktracker.config;
+package com.abhinav.stocktracker.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
