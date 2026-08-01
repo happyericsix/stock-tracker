@@ -8,7 +8,7 @@
         <version>4.0.6</version>
         <relativePath/>
     </parent>
-    <groupId>com.abhinav</groupId>
+    <groupId>com.happyericsix</groupId>
     <artifactId>stocktracker</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>stocktracker</name>

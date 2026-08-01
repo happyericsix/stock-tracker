@@ -1,11 +1,11 @@
-package com.abhinav.stocktracker.service;
+package com.happyericsix.stocktracker.service;
 
-import com.abhinav.stocktracker.client.StockClient;
-import com.abhinav.stocktracker.dto.AlphaVantageResponse;
-import com.abhinav.stocktracker.dto.StockResponse;
-import com.abhinav.stocktracker.entity.FavoriteStock;
-import com.abhinav.stocktracker.exception.FavoriteAlreadyExistsException;
-import com.abhinav.stocktracker.repository.FavoriteStockRepository;
+import com.happyericsix.stocktracker.client.StockClient;
+import com.happyericsix.stocktracker.dto.AlphaVantageResponse;
+import com.happyericsix.stocktracker.dto.StockResponse;
+import com.happyericsix.stocktracker.entity.FavoriteStock;
+import com.happyericsix.stocktracker.exception.FavoriteAlreadyExistsException;
+import com.happyericsix.stocktracker.repository.FavoriteStockRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;

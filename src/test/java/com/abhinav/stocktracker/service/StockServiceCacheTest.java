@@ -1,7 +1,7 @@
-package com.abhinav.stocktracker.service;
+package com.happyericsix.stocktracker.service;
 
-import com.abhinav.stocktracker.client.StockClient;
-import com.abhinav.stocktracker.dto.AlphaVantageResponse;
+import com.happyericsix.stocktracker.client.StockClient;
+import com.happyericsix.stocktracker.dto.AlphaVantageResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;

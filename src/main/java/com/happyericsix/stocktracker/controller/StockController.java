@@ -1,0 +1,108 @@
+package com.happyericsix.stocktracker.controller;
+
+import com.happyericsix.stocktracker.client.StockClient;
+import com.happyericsix.stocktracker.dto.*;
+import com.happyericsix.stocktracker.entity.FavoriteStock;
+import com.happyericsix.stocktracker.service.StockService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.web.bind.annotation.PostMapping;
+import java.util.Map;
+import org.springframework.web.bind.annotation.PostMapping;
+import java.util.Map;
+
+import com.happyericsix.stocktracker.dto.Result;
+import com.happyericsix.stocktracker.dto.PagedResponse;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@RestController
+@RequestMapping("/api/v1/stocks")
+public class StockController {
+
+    private final StockService stockService;
+    private final StockClient stockClient;
+    private static final Logger log = LoggerFactory.getLogger(StockController.class);
+
+    @Autowired
+    public StockController(StockService stockService, StockClient stockClient) {
+        this.stockService = stockService;
+        this.stockClient = stockClient;
+    }
+
+    public ResponseEntity<Map<String, Object>> home() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "Welcome to Stock Tracker API");
+        response.put("status", "Running");
+        response.put("version", "2.0");
+        response.put("baseUrl", "/api/v1/stocks");
+        
+        Map<String, String> endpoints = new HashMap<>();
+        endpoints.put("Get Live Stock Price", "GET /api/v1/stocks/{symbol}    -> e.g. /api/v1/stocks/AAPL");
+        endpoints.put("Get Stock Overview", "GET /api/v1/stocks/{symbol}/overview");
+        endpoints.put("Get Price History", "GET /api/v1/stocks/{symbol}/history?page=0&size=30");
+        endpoints.put("Add Favorite", "POST /api/v1/stocks/favorites");
+        endpoints.put("Delete Favorite", "DELETE /api/v1/stocks/favorites/{symbol}");
+        endpoints.put("Get All Favorites", "GET /api/v1/stocks/favorites");
+        
+        response.put("endpoints", endpoints);
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{stockSymbol}")
+    public StockResponse getStock(@PathVariable("stockSymbol") String stockSymbol) {
+        long startTime = System.currentTimeMillis();
+        StockResponse response = stockService.getStockForSymbol(stockSymbol.toUpperCase());
+        long duration = System.currentTimeMillis() - startTime;
+        log.info("GET /{} returned in {}ms (price: {})", stockSymbol.toUpperCase(), duration, response.price());
+        return response;
+    }
+
+    @GetMapping("/{stockSymbol}/overview")
+    public StockOverviewResponse getStockOverview(@PathVariable String stockSymbol) {
+        long startTime = System.currentTimeMillis();
+        StockOverviewResponse response = stockService.getStockOverviewForSymbol(stockSymbol.toUpperCase());
+        long duration = System.currentTimeMillis() - startTime;
+        log.info("GET /{}/overview returned in {}ms", stockSymbol.toUpperCase(), duration);
+        return response;
+    }
+
+    @GetMapping("/{stockSymbol}/history")
+    public PagedResponse<DailyStockResponse> getStockHistory(
+            @PathVariable String stockSymbol,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "30") int size) {
+        return stockService.getHistoryPaged(stockSymbol.toUpperCase(), page, size);
+    }
+
+    @PostMapping("/favorites")
+    public ResponseEntity<FavoriteStock> saveFavoriteStock(@RequestBody FavoriteStockRequest request) {
+        final FavoriteStock saved = stockService.addFavorite(request.getSymbol());
+        return  ResponseEntity.ok().body(saved);
+    }
+
+    @GetMapping("/favorites")
+    public List<StockResponse> getFavoriteStocks() {
+        long startTime = System.currentTimeMillis();
+        List<StockResponse> favorites = stockService.getFavoritesWithLivePrices();
+        long duration = System.currentTimeMillis() - startTime;
+        log.info("GET /favorites returned {} stocks in {}ms", favorites.size(), duration);
+        return favorites;
+    }
+
+    @DeleteMapping("/favorites/{symbol}")
+    public Result<String> deleteFavoriteStocks(@PathVariable String symbol) {
+        boolean deleted = stockService.deleteFavorite(symbol.toUpperCase());
+        if (deleted) {
+            return Result.success("Favorite deleted successfully", symbol.toUpperCase());
+        } else {
+            return Result.error(404, "Favorite not found: " + symbol.toUpperCase());
+        }
+    }
+}

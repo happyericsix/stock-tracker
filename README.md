@@ -142,7 +142,7 @@ stock-tracker/
 │   ├── Dockerfile
 │   └── package.json
 ├── src/
-│   └── main/java/com/abhinav/stocktracker/
+│   └── main/java/com/happyericsix/stocktracker/
 │       ├── cache/               # 二级缓存实现
 │       │   └── TwoLevelCache.java
 │       ├── client/              # 腾讯 API 客户端

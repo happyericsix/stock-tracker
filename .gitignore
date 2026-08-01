@@ -31,3 +31,10 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Python ###
+python-data-service/venv/
+python-data-service/.venv/
+python-data-service/__pycache__/
+**/__pycache__/
+*.pyc

@@ -1,4 +1,4 @@
-package com.abhinav.stocktracker;
+package com.happyericsix.stocktracker;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
