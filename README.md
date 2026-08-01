@@ -175,7 +175,7 @@ Access H2 Console (optional): `http://localhost:8082/h2-console`
 stocktracker/
 ├── src/
 │   ├── main/
-│   │   ├── java/com/abhinav/stocktracker/
+│   │   ├── java/com/happyericsix/stocktracker/
 │   │   │   ├── StocktrackerApplication.java      # Main entry point
 │   │   │   ├── controller/
 │   │   │   │   └── StockController.java          # REST endpoints
@@ -532,7 +532,7 @@ spring.cache.cache-names=stocks,stockOverviews
 spring.cache.type=simple
 
 # Logging Configuration
-logging.level.com.abhinav.stocktracker=INFO
+logging.level.com.happyericsix.stocktracker=INFO
 logging.level.org.springframework.cache=DEBUG
 ```
 
@@ -557,7 +557,7 @@ logging.level.org.springframework.cache=DEBUG
 - Check Alpha Vantage status at https://www.alphavantage.co/
 
 **To debug:**
-- Add to `application.properties`: `logging.level.com.abhinav.stocktracker.client=DEBUG`
+- Add to `application.properties`: `logging.level.com.happyericsix.stocktracker.client=DEBUG`
 - Check logs for raw API response
 
 ### 2. Port 8082 Already in Use
