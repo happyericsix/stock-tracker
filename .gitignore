@@ -45,3 +45,11 @@ python-data-service/__pycache__/
 
 python-data-service/.venv/
 
+### .NET / C# build outputs (Lagrange.OneBot etc.) ###
+**/bin/
+**/obj/
+**/publish/
+**/Release/
+*.exe
+*.dll
+
