@@ -53,3 +53,22 @@ python-data-service/.venv/
 *.exe
 *.dll
 
+
+### ====== Sensitive & Runtime Data ======
+# JWT RSA Keys
+src/main/resources/app.key
+src/main/resources/app.pub
+
+# QQ Bot runtime data & logs
+python-data-service/gocq/
+python-data-service/device.json
+
+# Project notes with sensitive info
+jindu.txt
+
+# NapCat config with QQ number
+napcat/config/napcat_1121460169.json
+napcat/config/napcat_protocol_1121460169.json
+napcat/config/onebot11_1121460169.json
+
+### ====== End Sensitive ======

@@ -1,4 +1,4 @@
-import asyncio, json, logging, threading, requests, subprocess, time
+﻿import asyncio, json, logging, os, threading, requests, subprocess, time
 from collections import defaultdict
 from datetime import datetime
 from aiocqhttp import CQHttp
@@ -12,7 +12,9 @@ bot = CQHttp()
 send_queues = defaultdict(list)
 
 MYSQL_PATH = "E:\\MySQL\\MySQL Server 8.0\\bin\\mysql.exe"
-MYSQL_ARGS = ["-u", "root", "-p123456", "stockdb", "--batch", "--skip-column-names"]
+MYSQL_PASSWORD = os.environ.get("MYSQL_PASSWORD", "123456")
+MYSQL_ARGS = ["-u", "root", f"-p{MYSQL_PASSWORD}", "stockdb", "--batch", "--skip-column-names"]
+
 
 
 # 调腾讯API直接拿完整数据（名称、现价、涨跌幅、最高、最低）
