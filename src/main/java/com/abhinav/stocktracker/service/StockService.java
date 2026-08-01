@@ -14,6 +14,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -32,6 +33,22 @@ public class StockService {
         this.userRepository = userRepository;
     }
 
+    // ==================== 股票搜索 ====================
+
+    /**
+     * 搜索股票代码/名称，永久缓存到 Redis。
+     * 空关键词也缓存空结果，防止缓存穿透。
+     */
+    @Cacheable(value = "stockSearch", key = "#keyword.trim().toUpperCase()", unless = "#result == null")
+    public StockSearchResponse searchStocks(String keyword) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return new StockSearchResponse("", 0, Collections.emptyList());
+        }
+        return akshareStockClient.searchStocks(keyword.trim());
+    }
+
+    // ==================== 实时行情 ====================
+
     @Cacheable(value = "stocks", key = "#stockSymbol")
     public StockResponse getStockForSymbol(final String stockSymbol) {
         long startTime = System.currentTimeMillis();
@@ -44,7 +61,7 @@ public class StockService {
             log.warn("No quote data for symbol {} (empty response). Duration: {}ms", stockSymbol, duration);
             return StockResponse.builder()
                     .symbol(stockSymbol)
-                    .price("0.0")
+                    .price(null)
                     .lastUpdated(null)
                     .build();
         }
@@ -93,7 +110,7 @@ public class StockService {
     }
 
     @Transactional
-    public FavoriteStock addFavorite(final String stockSymbol, final String username) {
+    public FavoriteStock addFavorite(final String stockSymbol, final String username, final Double buyPrice, final Integer quantity) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
 
@@ -104,6 +121,9 @@ public class StockService {
         FavoriteStock favoriteStock = FavoriteStock.builder()
                 .stockSymbol(stockSymbol)
                 .user(user)
+                .buyPrice(buyPrice)
+                .quantity(quantity)
+                .buyDate(java.time.LocalDate.now().toString())
                 .build();
         return favoriteStockRepository.save(favoriteStock);
     }

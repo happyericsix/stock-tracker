@@ -10,7 +10,7 @@ from typing import Optional
 class GlobalQuote(BaseModel):
     """Matches StockQuoteResponse.GlobalQuote in Java"""
     symbol: str = Field(default="", alias="01. symbol")
-    price: str = Field(default="0.0", alias="05. price")
+    price: Optional[str] = Field(default=None, alias="05. price")
     lastTradingDay: str = Field(default="", alias="07. latest trading day")
 
     model_config = {"populate_by_name": True}

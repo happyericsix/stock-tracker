@@ -6,6 +6,7 @@ import com.abhinav.stocktracker.dto.PagedResponse;
 import com.abhinav.stocktracker.dto.Result;
 import com.abhinav.stocktracker.dto.StockOverviewResponse;
 import com.abhinav.stocktracker.dto.StockResponse;
+import com.abhinav.stocktracker.dto.StockSearchResponse;
 import com.abhinav.stocktracker.entity.FavoriteStock;
 import com.abhinav.stocktracker.service.StockService;
 import org.slf4j.Logger;
@@ -28,6 +29,19 @@ public class StockController {
     public StockController(StockService stockService) {
         this.stockService = stockService;
     }
+
+    // ==================== 股票搜索 (Autocomplete) ====================
+
+    @GetMapping("/search")
+    public Result<StockSearchResponse> searchStocks(@RequestParam(defaultValue = "") String keyword) {
+        long startTime = System.currentTimeMillis();
+        StockSearchResponse response = stockService.searchStocks(keyword);
+        long duration = System.currentTimeMillis() - startTime;
+        log.info("GET /search?keyword={} returned {} results in {}ms", keyword, response.count(), duration);
+        return Result.success(response);
+    }
+
+    // ==================== 股票详情 ====================
 
     @GetMapping("/{stockSymbol}")
     public StockResponse getStock(@PathVariable("stockSymbol") String stockSymbol) {
@@ -59,7 +73,7 @@ public class StockController {
     public ResponseEntity<FavoriteStock> saveFavoriteStock(
             @RequestBody FavoriteStockRequest request,
             Authentication authentication) {
-        final FavoriteStock saved = stockService.addFavorite(request.getSymbol(), authentication.getName());
+        final FavoriteStock saved = stockService.addFavorite(request.getSymbol(), authentication.getName(), request.getBuyPrice(), request.getQuantity());
         return ResponseEntity.ok().body(saved);
     }
 

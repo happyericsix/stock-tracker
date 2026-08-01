@@ -43,13 +43,17 @@ def get_stock_data(symbol):
 
 def get_qq_users():
     try:
-        cmd = [MYSQL_PATH] + MYSQL_ARGS + ["-e", "SELECT u.id, u.qq_number, GROUP_CONCAT(fs.stock_symbol) FROM users u LEFT JOIN favorite_stocks fs ON u.id = fs.user_id WHERE u.qq_number IS NOT NULL AND u.qq_number != '' GROUP BY u.id, u.qq_number"]
+        cmd = [MYSQL_PATH] + MYSQL_ARGS + ["-e", "SELECT u.id, u.qq_number, GROUP_CONCAT(CONCAT(fs.stock_symbol, '|', COALESCE(fs.buy_price, ''), '|', COALESCE(fs.quantity, ''))) FROM users u LEFT JOIN favorite_stocks fs ON u.id = fs.user_id WHERE u.qq_number IS NOT NULL AND u.qq_number != '' GROUP BY u.id, u.qq_number"]
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
         users = []
         for line in result.stdout.strip().split("\n"):
             if line.strip():
                 parts = line.split("\t")
-                favs = parts[2].split(",") if len(parts) > 2 and parts[2] else []
+                favs = []
+                if len(parts) > 2 and parts[2]:
+                    for item in parts[2].split(","):
+                        segs = item.split("|")
+                        favs.append({"symbol": segs[0], "buy_price": segs[1] if len(segs) > 1 else "", "quantity": segs[2] if len(segs) > 2 else ""})
                 users.append({"qq_number": parts[1], "favorites": favs})
         return users
     except Exception as e:
@@ -58,16 +62,47 @@ def get_qq_users():
 
 
 def build_report(favorites):
-    msg = "📈 早安，今日自选股速报：\n\n"
-    for sym in favorites:
+    msg = "🌅 早安，今日自选股速报：\n\n"
+    for fav in favorites:
+        sym = fav["symbol"] if isinstance(fav, dict) else fav
         data = get_stock_data(sym)
-        if data:
-            msg += f"【{data['name']}({sym})】\n"
-            msg += f"  现价: ¥{data['price']}    涨跌: {data['涨跌幅']}%\n"
-            msg += f"  最高: ¥{data['最高']}    最低: ¥{data['最低']}\n"
-        else:
+        if not data:
             msg += f"【{sym}】查询失败\n"
-        msg += '\n'
+            continue
+
+        name = data.get("name", sym)
+        msg += f"【{name}({sym})】\n"
+        if isinstance(fav, dict) and fav.get("buy_price"):
+            cost = float(fav["buy_price"])
+            curr = float(data["price"])
+            pnl = ((curr - cost) / cost) * 100
+            arrow = "📈" if pnl >= 0 else "📉"
+            msg += f"  成本: ¥{cost}    现价: ¥{curr}    {arrow} {pnl:+.1f}%\n"
+        else:
+            price = data.get("price", "?")
+            chg = data.get("涨跌幅", "?")
+            msg += f"  现价: ¥{price}    涨跌: {chg}%\n"
+        high = data.get("最高", "?")
+        low = data.get("最低", "?")
+        msg += f"  最高: ¥{high}    最低: ¥{low}\n"
+
+        # 量化分析
+        try:
+            url = f"http://127.0.0.1:8000/api/v1/indicators/{sym}"
+            resp = requests.get(url, timeout=10)
+            if resp.status_code == 200:
+                q = resp.json()
+                if "signal" in q and "error" not in q:
+                    sig = q["signal"]["signal"]
+                    score = q["signal"]["score"]
+                    msg += f"  📊 信号: {sig} (评分:{score:+d})\n"
+                    if q.get("prediction"):
+                        pred = q["prediction"]["predicted_change_pct"]
+                        msg += f"  🔮 预测: {pred:+.2f}%\n"
+        except Exception as e:
+            logger.debug(f"量化分析获取失败 {sym}: {e}")
+
+        msg += "\n"
     msg += "\n💡 LLM 分析即将上线……"
     return msg
 

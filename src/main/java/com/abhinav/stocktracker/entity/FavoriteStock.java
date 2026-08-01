@@ -7,7 +7,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "favorite_stocks")
+@Table(name = "favorite_stocks", uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"stock_symbol", "user_id"})
+})
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -18,11 +20,17 @@ public class FavoriteStock {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String stockSymbol;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;
+
+    private Double buyPrice;
+
+    private Integer quantity;
+
+    private String buyDate;
 
 }

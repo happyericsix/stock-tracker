@@ -1,6 +1,5 @@
-﻿"""
-FastAPI 入口 —— 数据微服务
-为 Java 后端提供 RESTful 接口，替代原有的 Choice API 数据源。
+"""
+FastAPI 入口 —— 为 Java 后端提供 RESTful 接口，替代原有的 Choice API 数据源。
 """
 
 import logging
@@ -10,7 +9,8 @@ from datetime import date, timedelta
 from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from akshare_client import get_quote, get_history, get_overview
+from akshare_client import get_quote, get_history, get_overview, search_stocks
+from quant_model import analyze_stock
 from models import StockQuoteResponse, GlobalQuote, StockHistoryResponse, MetaData, DailyPrice, StockOverviewResponse
 
 logging.basicConfig(
@@ -40,6 +40,15 @@ def health():
     return {"status": "ok"}
 
 
+# ==================== 股票搜索（Autocomplete） ====================
+
+@app.get("/api/v1/stocks/search")
+def stock_search(keyword: str = Query(default="", description="搜索关键词（代码或名称）")):
+    """股票代码/名称自动补全搜索。启动时缓存全 A 股名单，支持代码前缀 + 名称模糊匹配。"""
+    results = search_stocks(keyword)
+    return {"keyword": keyword, "count": len(results), "results": results}
+
+
 # ==================== 实时行情 ====================
 
 @app.get("/api/v1/quote/{symbol}", response_model=StockQuoteResponse)
@@ -48,11 +57,13 @@ def stock_quote(symbol: str):
     data = get_quote(symbol)
     if data is None:
         return StockQuoteResponse(
-            globalQuote=GlobalQuote(symbol=symbol, price="0.0", lastTradingDay=str(date.today())),
+            globalQuote=None,
             note="No data"
         )
 
-    price = data.get("最新价", "0.0")
+    price = data.get("最新价", "")
+    if not price or price == "0.0":
+        price = None
     today_str = str(date.today())
 
     return StockQuoteResponse(
@@ -92,7 +103,7 @@ def stock_history(
         timeSeries=time_series,
     )
 
- 
+
 # ==================== 基本面概况 ====================
 
 @app.get("/api/v1/overview/{symbol}", response_model=StockOverviewResponse)
@@ -113,6 +124,33 @@ def stock_overview(symbol: str):
         dividendYield="N/A",
     )
 
+# ==================== 量化分析 ====================
+
+@app.get("/api/v1/indicators/{symbol}")
+def stock_indicators(symbol: str):
+    """量化指标分析 + ML 预测"""
+    try:
+        records = get_history(symbol)
+        if records is None or len(records) < 20:
+            return {"symbol": symbol, "error": "历史数据不足 20 条"}
+
+        prices = []
+        for r in records:
+            try:
+                prices.append(float(r["close"]))
+            except (ValueError, KeyError):
+                continue
+
+        if len(prices) < 20:
+            return {"symbol": symbol, "error": f"有效数据不足({len(prices)}条)"}
+
+        result = analyze_stock(prices, symbol)
+        return result
+    except Exception as e:
+        logger.error(f"量化分析失败 {symbol}: {e}")
+        return {"symbol": symbol, "error": str(e)}
+
+
 # ==================== QQ Bot 接口 ====================
 
 import requests
@@ -125,13 +163,14 @@ def send_qq(user_id, text):
             "message": text
         }, timeout=5)
     except Exception as e:
-        print(f"QQ发送失败: {e}")
+        print(f"QQ 发送失败: {e}")
+
 @app.post("/qq_msg")
 async def qq_webhook(req: Request):
     data = await req.json()
     user_id = data.get("user_id")
     message = data.get("message", "").strip()
-    print(f"QQ消息 [{user_id}]: {message}")
+    print(f"QQ 消息 [{user_id}]: {message}")
 
     if not message:
         return {"status": "ok"}
@@ -141,14 +180,14 @@ async def qq_webhook(req: Request):
             symbol = message.replace(kw, "").strip()
             data = await asyncio.to_thread(get_quote, symbol)
             if data:
-                reply = f'📊 {data.get("名称", symbol)}({symbol})\n最新价: {data.get("最新价", "N/A")}\n涨跌幅: {data.get("涨跌幅", "N/A")}%'
+                reply = f'📈 {data.get("名称", symbol)}({symbol})\n最新价: {data.get("最新价", "N/A")}\n涨跌幅: {data.get("涨跌幅", "N/A")}%'
             else:
                 reply = f"查询 {symbol} 失败"
             await asyncio.to_thread(send_qq, user_id, reply)
             return {"status": "ok"}
 
     if message in ["/help", "帮助", "菜单"]:
-        await asyncio.to_thread(send_qq, user_id, "📈 命令：\n600519 行情\n000001 股价")
+        await asyncio.to_thread(send_qq, user_id, "🤖 命令：\n600519 行情\n000001 股价")
         return {"status": "ok"}
 
     await asyncio.to_thread(send_qq, user_id, f"收到: {message}")

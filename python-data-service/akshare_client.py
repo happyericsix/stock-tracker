@@ -1,4 +1,4 @@
-﻿"""
+"""
 数据客户端
 - 实时行情/概况：腾讯单股 API（快速）
 - K线历史：腾讯 ifzq API
@@ -7,6 +7,8 @@
 import logging
 from typing import Optional
 import requests
+import threading
+import akshare
 
 logger = logging.getLogger(__name__)
 
@@ -98,3 +100,37 @@ def get_overview(symbol: str) -> Optional[dict]:
     """获取基本面概况（复用腾讯行情数据）。"""
     return get_quote(symbol)
 
+
+# ==================== 全 A 股名单缓存 ====================
+
+_stock_list_cache: list[dict] = []
+_stock_list_lock = threading.Lock()
+_stock_list_loaded = False
+
+
+def _load_stock_list() -> list[dict]:
+    """一次性加载全 A 股名单并缓存（~5000 条）。"""
+    global _stock_list_cache, _stock_list_loaded
+    if _stock_list_loaded:
+        return _stock_list_cache
+    with _stock_list_lock:
+        if _stock_list_loaded:
+            return _stock_list_cache
+        logger.info("正在加载全 A 股名单...")
+        df = akshare.stock_info_a_code_name()
+        _stock_list_cache = [{"code": str(r["code"]), "name": str(r["name"])} for _, r in df.iterrows()]
+        _stock_list_loaded = True
+        logger.info("全 A 股名单加载完成，共 %d 条", len(_stock_list_cache))
+    return _stock_list_cache
+
+
+def search_stocks(keyword: str) -> list[dict]:
+    """按关键词搜索股票：代码前缀 + 名称模糊匹配，最多返回 20 条。"""
+    if not keyword or not keyword.strip():
+        return []
+    keyword_upper = keyword.strip().upper()
+    results = [
+        s for s in _load_stock_list()
+        if s["code"].startswith(keyword_upper) or keyword_upper in s["name"].upper()
+    ]
+    return results[:20]

@@ -1,7 +1,9 @@
-﻿import axios from 'axios'
+import axios from 'axios'
+import router from '../router/index.js'
 
 const request = axios.create({
-  baseURL: '/api/v1'
+  baseURL: '/api/v1',
+  headers: { 'Accept-Charset': 'utf-8' }
 })
 
 request.interceptors.request.use(config => {
@@ -17,7 +19,9 @@ request.interceptors.response.use(
   error => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token')
-      window.location.href = '/login'
+      if (router.currentRoute.value.path !== '/login') {
+        router.push('/login')
+      }
     }
     return Promise.reject(error)
   }
